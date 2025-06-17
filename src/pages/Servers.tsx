@@ -18,8 +18,10 @@ import {
   HardDrive, 
   Network, 
   Plus,
-  RefreshCw
+  RefreshCw,
+  Eye
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const servers = [
   { 
@@ -85,9 +87,14 @@ const servers = [
 ];
 
 export default function Servers() {
+  const navigate = useNavigate();
   const onlineServers = servers.filter(s => s.status === "online").length;
   const warningServers = servers.filter(s => s.status === "warning").length;
   const offlineServers = servers.filter(s => s.status === "offline").length;
+
+  const handleServerClick = (serverId: number) => {
+    navigate(`/servers/${serverId}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -170,11 +177,16 @@ export default function Servers() {
                 <TableHead>Uptime</TableHead>
                 <TableHead>OS</TableHead>
                 <TableHead>Location</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {servers.map((server) => (
-                <TableRow key={server.id}>
+                <TableRow 
+                  key={server.id} 
+                  className="cursor-pointer hover:bg-accent/50"
+                  onClick={() => handleServerClick(server.id)}
+                >
                   <TableCell>
                     <div>
                       <div className="font-medium">{server.name}</div>
@@ -222,6 +234,18 @@ export default function Servers() {
                   <TableCell className="text-sm">{server.uptime}</TableCell>
                   <TableCell className="text-sm">{server.os}</TableCell>
                   <TableCell className="text-sm">{server.location}</TableCell>
+                  <TableCell>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleServerClick(server.id);
+                      }}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

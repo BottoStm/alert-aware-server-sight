@@ -7,10 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import Index from "./pages/Index";
 import Servers from "./pages/Servers";
-import Processes from "./pages/Processes";
-import Containers from "./pages/Containers";
-import Network from "./pages/Network";
-import Storage from "./pages/Storage";
+import ServerDetails from "./pages/ServerDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,10 +22,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/servers" element={<Servers />} />
-            <Route path="/processes" element={<Processes />} />
-            <Route path="/containers" element={<Containers />} />
-            <Route path="/network" element={<Network />} />
-            <Route path="/storage" element={<Storage />} />
+            <Route path="/servers/:serverId" element={<ServerDetails />} />
             {/* Placeholder routes for future pages */}
             <Route path="/website-checks" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Website Checks Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="/ssl" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">SSL Monitoring Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />

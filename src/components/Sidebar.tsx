@@ -3,13 +3,9 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Server,
-  Activity,
-  HardDrive,
-  Network,
   Bell,
   Settings,
   Gauge,
-  Database,
   Wifi,
   Signal
 } from "lucide-react";
@@ -28,13 +24,9 @@ import {
 
 const navigationItems = [
   { title: "Overview", url: "/", icon: Gauge, group: "Dashboard" },
-  { title: "Servers", url: "/servers", icon: Server, group: "Monitoring" },
-  { title: "Processes", url: "/processes", icon: Activity, group: "Monitoring" },
-  { title: "Containers", url: "/containers", icon: Database, group: "Monitoring" },
-  { title: "Network", url: "/network", icon: Network, group: "Monitoring" },
-  { title: "Storage", url: "/storage", icon: HardDrive, group: "Monitoring" },
-  { title: "Website Checks", url: "/website-checks", icon: Wifi, group: "Services" },
-  { title: "SSL Monitoring", url: "/ssl", icon: Signal, group: "Services" },
+  { title: "Servers", url: "/servers", icon: Server, group: "Infrastructure" },
+  { title: "Website Checks", url: "/website-checks", icon: Wifi, group: "Monitoring" },
+  { title: "SSL Monitoring", url: "/ssl", icon: Signal, group: "Monitoring" },
   { title: "Alerts", url: "/alerts", icon: Bell, group: "Management" },
   { title: "Settings", url: "/settings", icon: Settings, group: "Management" },
 ];
