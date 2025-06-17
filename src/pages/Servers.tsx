@@ -1,9 +1,11 @@
 
+import { useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { AddServerForm } from "@/components/AddServerForm";
 import { 
   Table,
   TableBody,
@@ -23,7 +25,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const servers = [
+const initialServers = [
   { 
     id: 1, 
     name: "Web Server 01", 
@@ -88,12 +90,24 @@ const servers = [
 
 export default function Servers() {
   const navigate = useNavigate();
+  const [servers, setServers] = useState(initialServers);
+  const [isAddServerOpen, setIsAddServerOpen] = useState(false);
+
   const onlineServers = servers.filter(s => s.status === "online").length;
   const warningServers = servers.filter(s => s.status === "warning").length;
   const offlineServers = servers.filter(s => s.status === "offline").length;
 
   const handleServerClick = (serverId: number) => {
     navigate(`/servers/${serverId}`);
+  };
+
+  const handleServerAdded = (newServer: any) => {
+    setServers(prev => [...prev, newServer]);
+  };
+
+  const handleRefresh = () => {
+    // Mock refresh functionality
+    console.log("Refreshing server data...");
   };
 
   return (
@@ -109,11 +123,11 @@ export default function Servers() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => setIsAddServerOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Add Server
           </Button>
@@ -252,6 +266,13 @@ export default function Servers() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Add Server Form Dialog */}
+      <AddServerForm 
+        open={isAddServerOpen}
+        onOpenChange={setIsAddServerOpen}
+        onServerAdded={handleServerAdded}
+      />
     </div>
   );
 }
