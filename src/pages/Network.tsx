@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { 
-  Network, 
+  Network as NetworkIcon, 
   Wifi,
   Router,
   Globe,
@@ -95,7 +95,7 @@ export default function Network() {
           value="1.2 GB/s"
           change="+15% from last hour"
           changeType="positive"
-          icon={<Network className="w-4 h-4" />}
+          icon={<NetworkIcon className="w-4 h-4" />}
           status="healthy"
           subtitle="Total throughput"
         />
@@ -129,7 +129,7 @@ export default function Network() {
       <Card className="glassmorphism border-border/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Network className="w-5 h-5 text-blue-400" />
+            <NetworkIcon className="w-5 h-5 text-blue-400" />
             Network Interfaces
           </CardTitle>
         </CardHeader>
@@ -159,13 +159,17 @@ export default function Network() {
                     </span>
                   </TableCell>
                   <TableCell>{interface_.speed}</TableCell>
-                  <TableCell className="flex items-center gap-2">
-                    <TrendingDown className="w-4 h-4 text-blue-400" />
-                    {interface_.rxBytes}
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <TrendingDown className="w-4 h-4 text-blue-400" />
+                      {interface_.rxBytes}
+                    </div>
                   </TableCell>
-                  <TableCell className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-green-400" />
-                    {interface_.txBytes}
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-green-400" />
+                      {interface_.txBytes}
+                    </div>
                   </TableCell>
                   <TableCell>{interface_.rxPackets}</TableCell>
                   <TableCell>{interface_.txPackets}</TableCell>
