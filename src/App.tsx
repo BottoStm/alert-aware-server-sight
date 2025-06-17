@@ -6,6 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import Index from "./pages/Index";
+import Servers from "./pages/Servers";
+import Processes from "./pages/Processes";
+import Containers from "./pages/Containers";
+import Network from "./pages/Network";
+import Storage from "./pages/Storage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,12 +24,12 @@ const App = () => (
         <Layout>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/servers" element={<Servers />} />
+            <Route path="/processes" element={<Processes />} />
+            <Route path="/containers" element={<Containers />} />
+            <Route path="/network" element={<Network />} />
+            <Route path="/storage" element={<Storage />} />
             {/* Placeholder routes for future pages */}
-            <Route path="/servers" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Servers Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
-            <Route path="/processes" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Processes Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
-            <Route path="/containers" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Containers Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
-            <Route path="/network" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Network Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
-            <Route path="/storage" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Storage Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="/website-checks" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Website Checks Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="/ssl" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">SSL Monitoring Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="/alerts" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Alerts Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />

@@ -46,7 +46,8 @@ const groupedItems = navigationItems.reduce((acc, item) => {
 }, {} as Record<string, typeof navigationItems>);
 
 export function AppSidebar() {
-  const { collapsed } = useSidebar();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -59,7 +60,7 @@ export function AppSidebar() {
     } border rounded-lg`;
 
   return (
-    <Sidebar className={`${collapsed ? "w-16" : "w-64"} border-r border-border/50`} collapsible>
+    <Sidebar className={`${collapsed ? "w-16" : "w-64"} border-r border-border/50`} collapsible="icon">
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
