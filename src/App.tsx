@@ -8,6 +8,8 @@ import { Layout } from "./components/Layout";
 import Index from "./pages/Index";
 import Servers from "./pages/Servers";
 import ServerDetails from "./pages/ServerDetails";
+import WebsiteChecks from "./pages/WebsiteChecks";
+import SslMonitoring from "./pages/SslMonitoring";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,9 +25,9 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/servers" element={<Servers />} />
             <Route path="/servers/:serverId" element={<ServerDetails />} />
+            <Route path="/website-checks" element={<WebsiteChecks />} />
+            <Route path="/ssl" element={<SslMonitoring />} />
             {/* Placeholder routes for future pages */}
-            <Route path="/website-checks" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Website Checks Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
-            <Route path="/ssl" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">SSL Monitoring Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="/alerts" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Alerts Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="/settings" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Settings Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="*" element={<NotFound />} />
