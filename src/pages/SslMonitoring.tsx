@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Plus, Edit, Trash2, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
-import { SslGradeChart } from "@/components/charts/SslGradeChart";
 
 const mockSslCertificates = [
   {
@@ -191,10 +190,6 @@ export default function SslMonitoring() {
               </CardContent>
             </Card>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SslGradeChart />
-          </div>
         </TabsContent>
 
         <TabsContent value="certificates" className="space-y-4">
@@ -259,8 +254,9 @@ export default function SslMonitoring() {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <div className="grid grid-cols-1 gap-6">
-            <SslGradeChart />
+          <div className="text-center p-8">
+            <h2 className="text-xl font-semibold text-muted-foreground">Analytics Coming Soon</h2>
+            <p className="text-muted-foreground mt-2">SSL analytics and detailed reports will be available here.</p>
           </div>
         </TabsContent>
       </Tabs>
