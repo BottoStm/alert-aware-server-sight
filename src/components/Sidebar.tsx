@@ -11,9 +11,7 @@ import {
   Gauge,
   Database,
   Wifi,
-  Signal,
-  ChevronDown,
-  ChevronRight
+  Signal
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,27 +28,13 @@ import {
 
 const navigationItems = [
   { title: "Overview", url: "/", icon: Gauge, group: "Dashboard" },
-  {
-    title: "Servers",
-    icon: Server,
-    group: "Infrastructure",
-    children: [
-      { title: "Server List", url: "/servers", icon: Server },
-      { title: "Processes", url: "/servers/processes", icon: Activity },
-      { title: "Containers", url: "/servers/containers", icon: Database },
-      { title: "Network", url: "/servers/network", icon: Network },
-      { title: "Storage", url: "/servers/storage", icon: HardDrive },
-    ]
-  },
-  {
-    title: "Monitoring",
-    icon: Activity,
-    group: "Services",
-    children: [
-      { title: "Website Checks", url: "/monitoring/websites", icon: Wifi },
-      { title: "SSL Monitoring", url: "/monitoring/ssl", icon: Signal },
-    ]
-  },
+  { title: "Servers", url: "/servers", icon: Server, group: "Monitoring" },
+  { title: "Processes", url: "/processes", icon: Activity, group: "Monitoring" },
+  { title: "Containers", url: "/containers", icon: Database, group: "Monitoring" },
+  { title: "Network", url: "/network", icon: Network, group: "Monitoring" },
+  { title: "Storage", url: "/storage", icon: HardDrive, group: "Monitoring" },
+  { title: "Website Checks", url: "/website-checks", icon: Wifi, group: "Services" },
+  { title: "SSL Monitoring", url: "/ssl", icon: Signal, group: "Services" },
   { title: "Alerts", url: "/alerts", icon: Bell, group: "Management" },
   { title: "Settings", url: "/settings", icon: Settings, group: "Management" },
 ];
@@ -66,19 +50,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
-  const [expandedSections, setExpandedSections] = useState<string[]>(["Servers", "Monitoring"]);
 
-  const isActive = (path: string) => currentPath === path || currentPath.startsWith(path + "/");
-  const isChildActive = (children: any[]) => children.some(child => isActive(child.url));
-  
-  const toggleSection = (title: string) => {
-    setExpandedSections(prev => 
-      prev.includes(title) 
-        ? prev.filter(s => s !== title)
-        : [...prev, title]
-    );
-  };
-
+  const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     `transition-all duration-200 ${
       isActive 
@@ -117,43 +90,12 @@ export function AppSidebar() {
               <SidebarMenu className="space-y-1">
                 {items.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    {item.children ? (
-                      <div>
-                        <SidebarMenuButton 
-                          onClick={() => toggleSection(item.title)}
-                          className={`w-full justify-between ${isChildActive(item.children) ? 'bg-primary/10 text-primary' : ''}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <item.icon className="w-4 h-4 shrink-0" />
-                            {!collapsed && <span className="font-medium">{item.title}</span>}
-                          </div>
-                          {!collapsed && (
-                            expandedSections.includes(item.title) ? 
-                              <ChevronDown className="w-4 h-4" /> : 
-                              <ChevronRight className="w-4 h-4" />
-                          )}
-                        </SidebarMenuButton>
-                        {!collapsed && expandedSections.includes(item.title) && (
-                          <div className="ml-6 mt-1 space-y-1">
-                            {item.children.map((child) => (
-                              <SidebarMenuButton key={child.title} asChild>
-                                <NavLink to={child.url} end className={getNavCls}>
-                                  <child.icon className="w-4 h-4 shrink-0" />
-                                  <span className="font-medium text-sm">{child.title}</span>
-                                </NavLink>
-                              </SidebarMenuButton>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <SidebarMenuButton asChild>
-                        <NavLink to={item.url} end className={getNavCls}>
-                          <item.icon className="w-4 h-4 shrink-0" />
-                          {!collapsed && <span className="font-medium">{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    )}
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.url} end className={getNavCls}>
+                        <item.icon className="w-4 h-4 shrink-0" />
+                        {!collapsed && <span className="font-medium">{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
