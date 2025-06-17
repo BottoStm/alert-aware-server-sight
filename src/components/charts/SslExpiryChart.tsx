@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer } from "recharts";
 import { Shield } from "lucide-react";
 
 const expiryData = [
@@ -21,10 +21,10 @@ const chartConfig = {
 };
 
 const getBarColor = (daysLeft: number) => {
-  if (daysLeft < 0) return "hsl(0, 84%, 60%)";
-  if (daysLeft <= 7) return "hsl(45, 93%, 47%)";
-  if (daysLeft <= 30) return "hsl(35, 91%, 56%)";
-  return "hsl(142, 76%, 36%)";
+  if (daysLeft < 0) return "hsl(0, 84%, 60%)"; // Red for expired
+  if (daysLeft <= 7) return "hsl(0, 84%, 60%)"; // Red for critical
+  if (daysLeft <= 30) return "hsl(45, 93%, 47%)"; // Yellow for warning
+  return "hsl(142, 76%, 36%)"; // Green for valid
 };
 
 export function SslExpiryChart() {
@@ -38,35 +38,46 @@ export function SslExpiryChart() {
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig}>
-          <BarChart data={expiryData} layout="horizontal">
-            <XAxis 
-              type="number"
-              domain={[-10, 200]}
-              tickLine={false}
-              axisLine={false}
-              className="text-xs"
-            />
-            <YAxis 
-              type="category"
-              dataKey="domain"
-              tickLine={false}
-              axisLine={false}
-              className="text-xs"
-              width={120}
-            />
-            <ChartTooltip 
-              content={<ChartTooltipContent />}
-              cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
-            />
-            <Bar
-              dataKey="daysLeft"
-              radius={[0, 4, 4, 0]}
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart 
+              data={expiryData} 
+              layout="horizontal"
+              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
             >
-              {expiryData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={getBarColor(entry.daysLeft)} />
-              ))}
-            </Bar>
-          </BarChart>
+              <XAxis 
+                type="number"
+                domain={[-10, 200]}
+                tickLine={false}
+                axisLine={false}
+                className="text-xs fill-muted-foreground"
+              />
+              <YAxis 
+                type="category"
+                dataKey="domain"
+                tickLine={false}
+                axisLine={false}
+                className="text-xs fill-muted-foreground"
+                width={120}
+              />
+              <ChartTooltip 
+                content={<ChartTooltipContent 
+                  formatter={(value, name) => [
+                    `${value} days`,
+                    name === 'daysLeft' ? 'Days Until Expiry' : name
+                  ]}
+                />}
+                cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
+              />
+              <Bar
+                dataKey="daysLeft"
+                radius={[0, 4, 4, 0]}
+              >
+                {expiryData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={getBarColor(entry.daysLeft)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
     </Card>
