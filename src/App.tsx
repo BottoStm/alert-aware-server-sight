@@ -25,13 +25,12 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/servers" element={<Servers />} />
-            <Route path="/processes" element={<Processes />} />
-            <Route path="/containers" element={<Containers />} />
-            <Route path="/network" element={<Network />} />
-            <Route path="/storage" element={<Storage />} />
-            {/* Placeholder routes for future pages */}
-            <Route path="/website-checks" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Website Checks Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
-            <Route path="/ssl" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">SSL Monitoring Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
+            <Route path="/servers/processes" element={<Processes />} />
+            <Route path="/servers/containers" element={<Containers />} />
+            <Route path="/servers/network" element={<Network />} />
+            <Route path="/servers/storage" element={<Storage />} />
+            <Route path="/monitoring/websites" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Website Monitoring Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
+            <Route path="/monitoring/ssl" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">SSL Monitoring Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="/alerts" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Alerts Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="/settings" element={<div className="text-center p-8"><h1 className="text-2xl font-bold">Settings Page</h1><p className="text-muted-foreground">Coming soon...</p></div>} />
             <Route path="*" element={<NotFound />} />
