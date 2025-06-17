@@ -170,11 +170,10 @@ export default function SslMonitoring() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="certificates">Certificates</TabsTrigger>
           <TabsTrigger value="testing">Testing Tools</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -389,7 +388,7 @@ export default function SslMonitoring() {
                       </div>
                       <div className="flex justify-between">
                         <span>Days Until Expiry:</span>
-                        <span className={sslVerifyResult.daysUntilExpiry < 30 ? "text-red-400" : ""}">
+                        <span className={sslVerifyResult.daysUntilExpiry < 30 ? "text-red-400" : ""}>
                           {sslVerifyResult.daysUntilExpiry}
                         </span>
                       </div>
@@ -414,13 +413,6 @@ export default function SslMonitoring() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="analytics">
-          <div className="text-center p-8">
-            <h2 className="text-xl font-semibold text-muted-foreground">Analytics Coming Soon</h2>
-            <p className="text-muted-foreground mt-2">SSL analytics and detailed reports will be available here.</p>
           </div>
         </TabsContent>
       </Tabs>
