@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Cell } from "recharts";
 import { Shield } from "lucide-react";
 
 const expiryData = [
@@ -18,6 +18,13 @@ const chartConfig = {
     label: "Days Until Expiry",
     color: "hsl(217, 91%, 60%)",
   },
+};
+
+const getBarColor = (daysLeft: number) => {
+  if (daysLeft < 0) return "hsl(0, 84%, 60%)";
+  if (daysLeft <= 7) return "hsl(45, 93%, 47%)";
+  if (daysLeft <= 30) return "hsl(35, 91%, 56%)";
+  return "hsl(142, 76%, 36%)";
 };
 
 export function SslExpiryChart() {
@@ -53,14 +60,12 @@ export function SslExpiryChart() {
             />
             <Bar
               dataKey="daysLeft"
-              fill={(entry) => {
-                if (entry.daysLeft < 0) return "hsl(0, 84%, 60%)";
-                if (entry.daysLeft <= 7) return "hsl(45, 93%, 47%)";
-                if (entry.daysLeft <= 30) return "hsl(35, 91%, 56%)";
-                return "hsl(142, 76%, 36%)";
-              }}
               radius={[0, 4, 4, 0]}
-            />
+            >
+              {expiryData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={getBarColor(entry.daysLeft)} />
+              ))}
+            </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>
