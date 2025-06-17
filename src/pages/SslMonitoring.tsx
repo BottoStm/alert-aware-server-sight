@@ -1,10 +1,11 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Plus, Edit, Trash2, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Shield, Plus, Edit, Trash2, AlertTriangle, CheckCircle, Clock, Wifi, Lock } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 
 const mockSslCertificates = [
@@ -61,6 +62,10 @@ const mockSslCertificates = [
 export default function SslMonitoring() {
   const [certificates, setCertificates] = useState(mockSslCertificates);
   const [newDomain, setNewDomain] = useState("");
+  const [pingTarget, setPingTarget] = useState("");
+  const [sslVerifyTarget, setSslVerifyTarget] = useState("");
+  const [pingResult, setPingResult] = useState<any>(null);
+  const [sslVerifyResult, setSslVerifyResult] = useState<any>(null);
 
   const addCertificate = () => {
     if (newDomain) {
@@ -83,6 +88,43 @@ export default function SslMonitoring() {
 
   const deleteCertificate = (id: string) => {
     setCertificates(certificates.filter(c => c.id !== id));
+  };
+
+  const runPingTest = () => {
+    if (pingTarget) {
+      // Mock ping test result
+      const mockPingResult = {
+        target: pingTarget,
+        status: Math.random() > 0.2 ? "success" : "failed",
+        responseTime: Math.floor(Math.random() * 100) + 10,
+        packetsSent: 4,
+        packetsReceived: Math.random() > 0.2 ? 4 : Math.floor(Math.random() * 4),
+        packetLoss: Math.random() > 0.2 ? 0 : Math.floor(Math.random() * 100),
+        timestamp: new Date().toLocaleString()
+      };
+      setPingResult(mockPingResult);
+    }
+  };
+
+  const runSslVerifyTest = () => {
+    if (sslVerifyTarget) {
+      // Mock SSL verify test result
+      const mockSslResult = {
+        target: sslVerifyTarget,
+        status: Math.random() > 0.3 ? "valid" : "invalid",
+        issuer: "Let's Encrypt",
+        subject: sslVerifyTarget,
+        validFrom: "2024-01-15",
+        validTo: "2024-12-15",
+        daysUntilExpiry: Math.floor(Math.random() * 365),
+        protocol: "TLS 1.3",
+        cipherSuite: "TLS_AES_256_GCM_SHA384",
+        keySize: 2048,
+        signatureAlgorithm: "SHA256withRSA",
+        timestamp: new Date().toLocaleString()
+      };
+      setSslVerifyResult(mockSslResult);
+    }
   };
 
   const getExpiryStatus = (daysLeft: number) => {
@@ -128,9 +170,10 @@ export default function SslMonitoring() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="certificates">Certificates</TabsTrigger>
+          <TabsTrigger value="testing">Testing Tools</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -250,6 +293,127 @@ export default function SslMonitoring() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="testing" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Ping Test */}
+            <Card className="glassmorphism border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wifi className="w-5 h-5 text-blue-400" />
+                  Ping Test
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter hostname or IP address..."
+                    value={pingTarget}
+                    onChange={(e) => setPingTarget(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button onClick={runPingTest} disabled={!pingTarget}>
+                    Ping
+                  </Button>
+                </div>
+                
+                {pingResult && (
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-semibold mb-2">Ping Results for {pingResult.target}</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>Status: 
+                        <Badge 
+                          variant={pingResult.status === "success" ? "default" : "destructive"}
+                          className="ml-2"
+                        >
+                          {pingResult.status}
+                        </Badge>
+                      </div>
+                      <div>Response Time: {pingResult.responseTime}ms</div>
+                      <div>Packets Sent: {pingResult.packetsSent}</div>
+                      <div>Packets Received: {pingResult.packetsReceived}</div>
+                      <div>Packet Loss: {pingResult.packetLoss}%</div>
+                      <div>Tested: {pingResult.timestamp}</div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* SSL Verify Test */}
+            <Card className="glassmorphism border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="w-5 h-5 text-green-400" />
+                  SSL Verify Test
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter hostname or domain..."
+                    value={sslVerifyTarget}
+                    onChange={(e) => setSslVerifyTarget(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button onClick={runSslVerifyTest} disabled={!sslVerifyTarget}>
+                    Verify SSL
+                  </Button>
+                </div>
+                
+                {sslVerifyResult && (
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-semibold mb-2">SSL Certificate for {sslVerifyResult.target}</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Status:</span>
+                        <Badge 
+                          variant={sslVerifyResult.status === "valid" ? "default" : "destructive"}
+                        >
+                          {sslVerifyResult.status}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Issuer:</span>
+                        <span>{sslVerifyResult.issuer}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Valid From:</span>
+                        <span>{sslVerifyResult.validFrom}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Valid To:</span>
+                        <span>{sslVerifyResult.validTo}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Days Until Expiry:</span>
+                        <span className={sslVerifyResult.daysUntilExpiry < 30 ? "text-red-400" : ""}">
+                          {sslVerifyResult.daysUntilExpiry}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Protocol:</span>
+                        <span>{sslVerifyResult.protocol}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Key Size:</span>
+                        <span>{sslVerifyResult.keySize} bits</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Cipher Suite:</span>
+                        <span className="text-xs">{sslVerifyResult.cipherSuite}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tested:</span>
+                        <span className="text-xs">{sslVerifyResult.timestamp}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
