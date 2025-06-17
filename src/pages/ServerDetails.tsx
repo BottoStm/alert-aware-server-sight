@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Server, Activity, Database, Network, HardDrive } from "lucide-react";
+import { ArrowLeft, Server, Activity, Database, Network as NetworkIcon, HardDrive } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Progress } from "@/components/ui/progress";
 
@@ -186,7 +186,7 @@ export default function ServerDetails() {
             Containers
           </TabsTrigger>
           <TabsTrigger value="network" className="flex items-center gap-2">
-            <Network className="w-4 h-4" />
+            <NetworkIcon className="w-4 h-4" />
             Network
           </TabsTrigger>
           <TabsTrigger value="storage" className="flex items-center gap-2">
