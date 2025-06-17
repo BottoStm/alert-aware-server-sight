@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Server, Activity, Database, Network as NetworkIcon, HardDrive } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Progress } from "@/components/ui/progress";
+import { UsageOverview } from "@/components/charts/UsageOverview";
 
 // Import the existing page components
 import Processes from "./Processes";
@@ -175,8 +175,12 @@ export default function ServerDetails() {
       </Card>
 
       {/* Server Details Tabs */}
-      <Tabs defaultValue="processes" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <Server className="w-4 h-4" />
+            Overview
+          </TabsTrigger>
           <TabsTrigger value="processes" className="flex items-center gap-2">
             <Activity className="w-4 h-4" />
             Processes
@@ -194,6 +198,10 @@ export default function ServerDetails() {
             Storage
           </TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="overview">
+          <UsageOverview />
+        </TabsContent>
         
         <TabsContent value="processes">
           <Processes />
