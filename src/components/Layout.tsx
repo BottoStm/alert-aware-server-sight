@@ -1,10 +1,10 @@
-
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./Sidebar";
 import { Bell, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LogoutButton } from "./LogoutButton";
 
 interface LayoutProps {
   children: ReactNode;
@@ -37,9 +37,7 @@ export function Layout({ children }: LayoutProps) {
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
                 </Button>
                 <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
-                <Button variant="ghost" size="icon" className="hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg p-2 transition-colors">
-                  <User className="w-4 h-4" />
-                </Button>
+                <LogoutButton />
               </div>
             </div>
           </header>
