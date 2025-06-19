@@ -24,7 +24,7 @@ export function useAuth() {
 }
 
 async function loginUser(email: string, password: string) {
-  const whmcsApiEndpoint = 'https://dashboard.theservermonitor.com/api/whmcs';
+  const whmcsApiEndpoint = 'https://api.theservermonitor.com/whmcs';
 
   const payload = {
     action: 'ValidateLogin',
