@@ -181,8 +181,8 @@ export default function WebsiteChecks() {
         <TabsContent value="websites" className="space-y-4">
           <div className="grid gap-4">
             {websites.map((website) => (
-              <Card key={website.id} className="glassmorphism border-border/50">
-                <CardContent className="p-6">
+              <Card key={website.id} className="glassmorphism border-border/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                <CardContent className="p-6" onClick={() => window.location.href = `/website-analytics/${website.id}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <Globe className="w-8 h-8 text-blue-400" />
@@ -210,13 +210,23 @@ export default function WebsiteChecks() {
                       <StatusBadge status={website.status}>
                         {website.status.charAt(0).toUpperCase() + website.status.slice(1)}
                       </StatusBadge>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Edit functionality
+                        }}
+                      >
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => deleteWebsite(website.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteWebsite(website.id);
+                        }}
                         className="text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-4 h-4" />
