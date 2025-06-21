@@ -9,7 +9,7 @@ export function LogoutButton() {
   return (
     <div className="flex items-center gap-3">
       <span className="text-sm text-slate-600 hidden sm:inline">
-        Welcome, {user?.email}
+        Welcome, {user?.firstname} {user?.lastname}
       </span>
       <Button
         onClick={logout}

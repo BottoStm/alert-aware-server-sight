@@ -4,6 +4,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 interface User {
   id: string;
   email: string;
+  firstname: string;
+  lastname: string;
 }
 
 interface AuthContextType {
@@ -27,29 +29,31 @@ async function loginUser(email: string, password: string) {
   const whmcsApiEndpoint = 'https://api.theservermonitor.com/whmcs';
 
   const payload = {
-    action: 'ValidateLogin',
     email: email,
-    password2: password
+    password: password
   };
 
   const response = await fetch(whmcsApiEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Origin': 'https://dashboard.theservermonitor.com'
     },
     body: JSON.stringify(payload),
   });
 
   const data = await response.json();
 
-  if (data.result === 'success') {
-    console.log('Login successful for user ID:', data.userid);
+  if (data.success && data.data.result === 'success') {
+    console.log('Login successful for user ID:', data.data.userid);
     return {
-      id: data.userid,
-      email: email
+      id: data.data.userid.toString(),
+      email: data.data.client.email,
+      firstname: data.data.client.firstname,
+      lastname: data.data.client.lastname
     };
   } else {
-    console.error('Login failed:', data.message);
+    console.error('Login failed:', data.message || 'Invalid credentials');
     throw new Error(data.message || 'Login failed');
   }
 }
