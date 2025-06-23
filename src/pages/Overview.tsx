@@ -20,8 +20,11 @@ import {
   AlertTriangle,
   TrendingUp,
   Eye,
-  ExternalLink
+  ExternalLink,
+  Wifi
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 
 const servers = [
   { 
@@ -86,8 +89,37 @@ const servers = [
   }
 ];
 
+// Mock data for demonstration
+const systemMetrics = {
+  servers: { total: 12, online: 11, offline: 1 },
+  containers: { total: 47, running: 44, stopped: 3 },
+  alerts: { total: 3, critical: 1, warning: 2 }
+};
+
+const recentAlerts = [
+  { id: 1, message: "High CPU usage on Database Server", severity: "critical" as const, time: "2 min ago" },
+  { id: 2, message: "SSL certificate expires in 7 days", severity: "warning" as const, time: "1 hour ago" },
+  { id: 3, message: "Backup process completed successfully", severity: "info" as const, time: "3 hours ago" }
+];
+
 export default function Overview() {
   const navigate = useNavigate();
+  const { token } = useAuth();
+
+  // Fetch website status from API
+  const { data: websiteStatus } = useQuery({
+    queryKey: ['website-status'],
+    queryFn: async () => {
+      const response = await fetch('https://api.theservermonitor.com/status', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      return data.success ? data.data : { online: 0, total: 0, status_text: "0/0 Online" };
+    },
+    enabled: !!token
+  });
 
   const onlineServers = servers.filter(s => s.status === "online").length;
   const warningServers = servers.filter(s => s.status === "warning").length;
@@ -96,6 +128,9 @@ export default function Overview() {
   const handleServerClick = (serverId: number) => {
     navigate(`/servers/${serverId}`);
   };
+
+  const websiteUptime = websiteStatus?.total > 0 ? 
+    ((websiteStatus.online / websiteStatus.total) * 100).toFixed(1) : '0.0';
 
   return (
     <div className="space-y-8">
@@ -130,109 +165,172 @@ export default function Overview() {
         />
         
         <MetricCard
-          title="Warning"
-          value={warningServers}
-          icon={<AlertTriangle className="w-4 h-4" />}
-          status="warning"
-          subtitle="Needs attention"
+          title="Website Status"
+          value={websiteStatus?.status_text || "Loading..."}
+          change={`${websiteUptime}% uptime`}
+          changeType="positive"
+          icon={<Wifi className="w-4 h-4" />}
+          status={websiteStatus?.online === websiteStatus?.total ? "healthy" : websiteStatus?.online === 0 ? "critical" : "warning"}
+          subtitle={`${websiteStatus?.online || 0} of ${websiteStatus?.total || 0} online`}
         />
         
         <MetricCard
-          title="Offline"
-          value={offlineServers}
-          icon={<Activity className="w-4 h-4" />}
+          title="Active Alerts"
+          value={systemMetrics.alerts.total}
+          change={`${systemMetrics.alerts.critical} critical`}
+          changeType="negative"
+          icon={<AlertTriangle className="w-4 h-4" />}
           status="critical"
-          subtitle="Not responding"
+          subtitle="Requires immediate attention"
         />
       </div>
 
-      {/* Recent Servers */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              Recent Server Activity
-            </CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => navigate("/servers")}
-            >
-              View All
-              <ExternalLink className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Server</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>CPU</TableHead>
-                <TableHead>Memory</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {servers.slice(0, 5).map((server) => (
-                <TableRow 
-                  key={server.id} 
-                  className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                  onClick={() => handleServerClick(server.id)}
-                >
-                  <TableCell>
-                    <div>
-                      <div className="font-medium text-slate-900 dark:text-slate-100">{server.name}</div>
-                      <div className="text-sm text-slate-500 dark:text-slate-400">{server.ip}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={server.status}>
-                      {server.status.charAt(0).toUpperCase() + server.status.slice(1)}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className={`text-sm font-medium ${
-                        server.cpu > 80 ? 'text-red-600 dark:text-red-400' : 
-                        server.cpu > 60 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'
-                      }`}>
-                        {server.cpu}%
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Server Status List */}
+        <div className="lg:col-span-2">
+          <Card className="glassmorphism border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="w-5 h-5 text-blue-400" />
+                Server Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {servers.map((server, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/30 hover:border-border/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <h3 className="font-medium text-foreground">{server.name}</h3>
+                        <p className="text-sm text-muted-foreground">{server.ip}</p>
                       </div>
-                      <Progress value={server.cpu} className="h-1" />
+                      <StatusBadge status={server.status}>
+                        {server.status.charAt(0).toUpperCase() + server.status.slice(1)}
+                      </StatusBadge>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className={`text-sm font-medium ${
-                        server.memory > 80 ? 'text-red-600 dark:text-red-400' : 
-                        server.memory > 60 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'
-                      }`}>
-                        {server.memory}%
+                    
+                    <div className="flex items-center gap-6 text-sm">
+                      <div className="text-center">
+                        <div className="text-muted-foreground">CPU</div>
+                        <div className={`font-medium ${server.cpu > 80 ? 'text-red-400' : server.cpu > 60 ? 'text-amber-400' : 'text-green-400'}`}>
+                          {server.cpu}%
+                        </div>
                       </div>
-                      <Progress value={server.memory} className="h-1" />
+                      <div className="text-center">
+                        <div className="text-muted-foreground">RAM</div>
+                        <div className={`font-medium ${server.memory > 80 ? 'text-red-400' : server.memory > 60 ? 'text-amber-400' : 'text-green-400'}`}>
+                          {server.memory}%
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-muted-foreground">Disk</div>
+                        <div className={`font-medium ${server.disk > 80 ? 'text-red-400' : server.disk > 60 ? 'text-amber-400' : 'text-green-400'}`}>
+                          {server.disk}%
+                        </div>
+                      </div>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleServerClick(server.id);
-                      }}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Alerts */}
+        <div>
+          <Card className="glassmorphism border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                Recent Alerts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentAlerts.map((alert) => (
+                  <div key={alert.id} className="p-3 rounded-lg border border-border/30 bg-card/30">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                        alert.severity === 'critical' ? 'bg-red-400' : 
+                        alert.severity === 'warning' ? 'bg-amber-400' : 'bg-blue-400'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground mb-1">
+                          {alert.message}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {alert.time}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* System Resource Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="glassmorphism border-border/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Average CPU</CardTitle>
+              <Activity className="w-4 h-4 text-blue-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground mb-2">67%</div>
+            <Progress value={67} className="h-2 mb-2" />
+            <p className="text-xs text-muted-foreground">Across all servers</p>
+          </CardContent>
+        </Card>
+
+        <Card className="glassmorphism border-border/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Memory Usage</CardTitle>
+              <Server className="w-4 h-4 text-green-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground mb-2">72%</div>
+            <Progress value={72} className="h-2 mb-2" />
+            <p className="text-xs text-muted-foreground">89.6 GB / 124 GB</p>
+          </CardContent>
+        </Card>
+
+        <Card className="glassmorphism border-border/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Website Uptime</CardTitle>
+              <Wifi className="w-4 h-4 text-amber-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground mb-2">{websiteUptime}%</div>
+            <Progress value={parseFloat(websiteUptime)} className="h-2 mb-2" />
+            <p className="text-xs text-muted-foreground">{websiteStatus?.status_text || "Loading..."}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="glassmorphism border-border/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Active Alerts</CardTitle>
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground mb-2">{systemMetrics.alerts.total}</div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{systemMetrics.alerts.critical} critical</span>
+              <span>{systemMetrics.alerts.warning} warning</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
