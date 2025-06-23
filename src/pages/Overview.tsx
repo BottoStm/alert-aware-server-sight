@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MetricCard } from "@/components/MetricCard";
@@ -107,19 +106,46 @@ export default function Overview() {
   const { token } = useAuth();
 
   // Fetch website status from API
-  const { data: websiteStatus } = useQuery({
+  const { data: websiteStatus, isLoading: websiteStatusLoading, error: websiteStatusError } = useQuery({
     queryKey: ['website-status'],
     queryFn: async () => {
-      const response = await fetch('https://api.theservermonitor.com/status', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      console.log('🔄 Making request to /status endpoint...');
+      console.log('🔑 Using token:', token ? 'Token present' : 'No token');
+      
+      try {
+        const response = await fetch('https://api.theservermonitor.com/status', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        const data = await response.json();
+        console.log('📊 Raw API response:', data);
+        
+        if (data.success) {
+          console.log('✅ Successfully fetched website status:', data.data);
+          return data.data;
+        } else {
+          console.error('❌ API returned error:', data.message || 'Unknown error');
+          return { online: 0, total: 0, status_text: "0/0 Online" };
         }
-      });
-      const data = await response.json();
-      return data.success ? data.data : { online: 0, total: 0, status_text: "0/0 Online" };
+      } catch (error) {
+        console.error('💥 Fetch error:', error);
+        throw error;
+      }
     },
-    enabled: !!token
+    enabled: !!token,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 3
   });
+
+  console.log('🎯 Current websiteStatus state:', websiteStatus);
+  console.log('⏳ Loading state:', websiteStatusLoading);
+  console.log('🚨 Error state:', websiteStatusError);
 
   const onlineServers = servers.filter(s => s.status === "online").length;
   const warningServers = servers.filter(s => s.status === "warning").length;
@@ -131,6 +157,19 @@ export default function Overview() {
 
   const websiteUptime = websiteStatus?.total > 0 ? 
     ((websiteStatus.online / websiteStatus.total) * 100).toFixed(1) : '0.0';
+
+  const getWebsiteStatusForCard = () => {
+    if (websiteStatusLoading) return "warning";
+    if (!websiteStatus) return "critical";
+    if (websiteStatus.online === websiteStatus.total && websiteStatus.total > 0) return "healthy";
+    if (websiteStatus.online === 0) return "critical";
+    return "warning";
+  };
+
+  const getAverageResponseTime = () => {
+    // This would typically come from the API, using placeholder for now
+    return "245ms";
+  };
 
   return (
     <div className="space-y-8">
@@ -166,11 +205,11 @@ export default function Overview() {
         
         <MetricCard
           title="Website Status"
-          value={websiteStatus?.status_text || "Loading..."}
+          value={websiteStatusLoading ? "Loading..." : (websiteStatus?.status_text || "0/0 Online")}
           change={`${websiteUptime}% uptime`}
           changeType="positive"
           icon={<Wifi className="w-4 h-4" />}
-          status={websiteStatus?.online === websiteStatus?.total ? "healthy" : websiteStatus?.online === 0 ? "critical" : "warning"}
+          status={getWebsiteStatusForCard()}
           subtitle={`${websiteStatus?.online || 0} of ${websiteStatus?.total || 0} online`}
         />
         
@@ -311,7 +350,9 @@ export default function Overview() {
           <CardContent>
             <div className="text-2xl font-bold text-foreground mb-2">{websiteUptime}%</div>
             <Progress value={parseFloat(websiteUptime)} className="h-2 mb-2" />
-            <p className="text-xs text-muted-foreground">{websiteStatus?.status_text || "Loading..."}</p>
+            <p className="text-xs text-muted-foreground">
+              Average response: {getAverageResponseTime()}
+            </p>
           </CardContent>
         </Card>
 
