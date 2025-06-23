@@ -10,6 +10,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -47,10 +48,13 @@ async function loginUser(email: string, password: string) {
   if (data.success && data.data.result === 'success') {
     console.log('Login successful for user ID:', data.data.userid);
     return {
-      id: data.data.userid.toString(),
-      email: data.data.client.email,
-      firstname: data.data.client.firstname,
-      lastname: data.data.client.lastname
+      user: {
+        id: data.data.userid.toString(),
+        email: data.data.client.email,
+        firstname: data.data.client.firstname,
+        lastname: data.data.client.lastname
+      },
+      token: data.token
     };
   } else {
     console.error('Login failed:', data.message || 'Invalid credentials');
@@ -64,20 +68,25 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if user is already logged in (from localStorage)
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const storedToken = localStorage.getItem('token');
+    if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
+      setToken(storedToken);
     }
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      const userData = await loginUser(email, password);
+      const { user: userData, token: userToken } = await loginUser(email, password);
       setUser(userData);
+      setToken(userToken);
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', userToken);
     } catch (error) {
       console.error('An error occurred while contacting the server:', error);
       throw error;
@@ -86,11 +95,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = () => {
     setUser(null);
+    setToken(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
   };
 
   const value = {
     user,
+    token,
     login,
     logout,
     isAuthenticated: !!user,
