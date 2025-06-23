@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Globe, Clock, Zap, MapPin, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
-import { WebsiteResponseChart } from "@/components/charts/WebsiteResponseChart";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
+import { Card as ChartCard, CardContent as ChartCardContent, CardHeader as ChartCardHeader, CardTitle as ChartCardTitle } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts";
 
 export default function WebsiteAnalytics() {
   const { websiteId } = useParams();
@@ -81,6 +83,51 @@ export default function WebsiteAnalytics() {
     return times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
   };
 
+  const isWebsiteActive = () => {
+    if (!websiteData?.latest_uptime) return false;
+    const canadaUp = websiteData.latest_uptime.CANADA?.status?.toLowerCase() === 'up';
+    const londonUp = websiteData.latest_uptime.LONDON?.status?.toLowerCase() === 'up';
+    return canadaUp || londonUp; // Active if at least one location is up
+  };
+
+  const formatChartData = () => {
+    if (!websiteData?.graph_data?.response_times_24h) return [];
+    
+    const canadaData = websiteData.graph_data.response_times_24h.CANADA || [];
+    const londonData = websiteData.graph_data.response_times_24h.LONDON || [];
+    
+    // Create a combined dataset with timestamps
+    const combinedData = [];
+    const maxLength = Math.max(canadaData.length, londonData.length);
+    
+    for (let i = 0; i < maxLength; i++) {
+      const canadaPoint = canadaData[i];
+      const londonPoint = londonData[i];
+      
+      if (canadaPoint || londonPoint) {
+        combinedData.push({
+          time: canadaPoint?.time || londonPoint?.time || '',
+          canada: canadaPoint?.value || null,
+          london: londonPoint?.value || null,
+        });
+      }
+    }
+    
+    // Take last 24 points for better visualization
+    return combinedData.slice(-24);
+  };
+
+  const chartConfig = {
+    canada: {
+      label: "Canada (ms)",
+      color: "hsl(217, 91%, 60%)",
+    },
+    london: {
+      label: "London (ms)",
+      color: "hsl(142, 76%, 36%)",
+    },
+  };
+
   if (isLoading) {
     return (
       <div className="text-center p-8">
@@ -108,6 +155,7 @@ export default function WebsiteAnalytics() {
 
   const domainName = getDomainName(website.url);
   const sslGrade = getGradeFromProtocol(sslInfo.protocol_from_cert);
+  const chartData = formatChartData();
 
   return (
     <div className="space-y-6">
@@ -129,8 +177,8 @@ export default function WebsiteAnalytics() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge status={website.is_active ? "online" : "offline"}>
-            {website.is_active ? "Active" : "Inactive"}
+          <StatusBadge status={isWebsiteActive() ? "online" : "offline"}>
+            {isWebsiteActive() ? "Active" : "Inactive"}
           </StatusBadge>
         </div>
       </div>
@@ -143,7 +191,7 @@ export default function WebsiteAnalytics() {
               <Globe className="w-8 h-8 text-blue-400" />
               <div>
                 <p className="text-sm text-muted-foreground">Status</p>
-                <p className="text-2xl font-bold">{website.is_active ? "Active" : "Inactive"}</p>
+                <p className="text-2xl font-bold">{isWebsiteActive() ? "Active" : "Inactive"}</p>
               </div>
             </div>
           </CardContent>
@@ -274,9 +322,61 @@ export default function WebsiteAnalytics() {
       </Card>
 
       {/* Website Response Chart */}
-      <div className="grid grid-cols-1 gap-6">
-        <WebsiteResponseChart />
-      </div>
+      <ChartCard className="glassmorphism border-border/50">
+        <ChartCardHeader>
+          <ChartCardTitle className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-blue-400" />
+            {domainName} Response Times (24h)
+          </ChartCardTitle>
+        </ChartCardHeader>
+        <ChartCardContent>
+          <ChartContainer config={chartConfig}>
+            <LineChart data={chartData}>
+              <XAxis 
+                dataKey="time"
+                tickFormatter={(value) => {
+                  const date = new Date(value);
+                  return date.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                  });
+                }}
+                tickLine={false}
+                axisLine={false}
+                className="text-xs"
+              />
+              <YAxis 
+                tickLine={false}
+                axisLine={false}
+                className="text-xs"
+              />
+              <ChartTooltip 
+                content={<ChartTooltipContent />}
+                cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="canada"
+                stroke="var(--color-canada)"
+                strokeWidth={2}
+                dot={{ fill: "var(--color-canada)", strokeWidth: 2, r: 3 }}
+                activeDot={{ r: 5, stroke: "var(--color-canada)", strokeWidth: 2 }}
+                connectNulls={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="london"
+                stroke="var(--color-london)"
+                strokeWidth={2}
+                dot={{ fill: "var(--color-london)", strokeWidth: 2, r: 3 }}
+                activeDot={{ r: 5, stroke: "var(--color-london)", strokeWidth: 2 }}
+                connectNulls={false}
+              />
+            </LineChart>
+          </ChartContainer>
+        </ChartCardContent>
+      </ChartCard>
     </div>
   );
 }
