@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -6,8 +5,7 @@ import {
   Bell,
   Settings,
   Gauge,
-  Wifi,
-  Signal
+  Globe
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,8 +23,7 @@ import {
 const navigationItems = [
   { title: "Overview", url: "/", icon: Gauge, group: "Dashboard" },
   { title: "Servers", url: "/servers", icon: Server, group: "Infrastructure" },
-  { title: "Website Checks", url: "/website-checks", icon: Wifi, group: "Monitoring" },
-  { title: "SSL Monitoring", url: "/ssl", icon: Signal, group: "Monitoring" },
+  { title: "Websites", url: "/websites", icon: Globe, group: "Monitoring" },
   { title: "Alerts", url: "/alerts", icon: Bell, group: "Management" },
   { title: "Settings", url: "/settings", icon: Settings, group: "Management" },
 ];

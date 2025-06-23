@@ -1,16 +1,12 @@
-
 import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Globe, Clock, Zap, Activity, MapPin, Shield, AlertTriangle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Globe, Clock, Zap, MapPin, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
 import { WebsiteResponseChart } from "@/components/charts/WebsiteResponseChart";
-import { UptimeChart } from "@/components/charts/UptimeChart";
-import { LocationResponseChart } from "@/components/charts/LocationResponseChart";
-import { LivePingCard } from "@/components/LivePingCard";
 
 const mockWebsites = [
   {
@@ -92,28 +88,19 @@ const mockWebsites = [
 ];
 
 const serverLocations = [
-  { name: "US-East-1", responseTime: 245, status: "online" as const },
-  { name: "EU-West-1", responseTime: 187, status: "online" as const },
-  { name: "Asia-Pacific", responseTime: 432, status: "online" as const },
-  { name: "US-West-2", responseTime: 298, status: "warning" as const }
+  { name: "London", responseTime: 245, status: "online" as const },
+  { name: "Canada", responseTime: 187, status: "online" as const },
+  { name: "India", responseTime: 432, status: "online" as const }
 ];
 
 export default function WebsiteAnalytics() {
   const { websiteId } = useParams();
   const navigate = useNavigate();
   const [website, setWebsite] = useState(null);
-  const [livePing, setLivePing] = useState(245);
 
   useEffect(() => {
     const foundWebsite = mockWebsites.find(w => w.id === websiteId);
     setWebsite(foundWebsite);
-
-    // Simulate live ping updates via WebSocket (mock implementation)
-    const interval = setInterval(() => {
-      setLivePing(prev => prev + Math.floor(Math.random() * 20) - 10);
-    }, 2000);
-
-    return () => clearInterval(interval);
   }, [websiteId]);
 
   const getGradeColor = (grade: string) => {
@@ -137,7 +124,7 @@ export default function WebsiteAnalytics() {
     return (
       <div className="text-center p-8">
         <h1 className="text-2xl font-bold">Website Not Found</h1>
-        <Button onClick={() => navigate('/website-checks')} className="mt-4">
+        <Button onClick={() => navigate('/websites')} className="mt-4">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Websites
         </Button>
@@ -151,7 +138,7 @@ export default function WebsiteAnalytics() {
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
-            onClick={() => navigate('/website-checks')}
+            onClick={() => navigate('/websites')}
             className="hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -172,8 +159,8 @@ export default function WebsiteAnalytics() {
         </div>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Overview Cards - Removed Live Ping */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="glassmorphism border-border/50">
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
@@ -209,8 +196,6 @@ export default function WebsiteAnalytics() {
             </div>
           </CardContent>
         </Card>
-
-        <LivePingCard livePing={livePing} />
       </div>
 
       {/* SSL Certificate Information */}
@@ -274,7 +259,7 @@ export default function WebsiteAnalytics() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {serverLocations.map((location) => (
               <div key={location.name} className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                 <div className="flex items-center justify-between mb-2">
@@ -290,12 +275,7 @@ export default function WebsiteAnalytics() {
         </CardContent>
       </Card>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <LocationResponseChart websiteName={website.name} />
-        <UptimeChart />
-      </div>
-
+      {/* Website Response Chart */}
       <div className="grid grid-cols-1 gap-6">
         <WebsiteResponseChart />
       </div>
