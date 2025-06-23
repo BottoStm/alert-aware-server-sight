@@ -118,6 +118,7 @@ export default function WebsiteChecks() {
     const times = [];
     if (details.latest_uptime.CANADA?.response_time_ms) times.push(details.latest_uptime.CANADA.response_time_ms);
     if (details.latest_uptime.LONDON?.response_time_ms) times.push(details.latest_uptime.LONDON.response_time_ms);
+    if (details.latest_uptime.INDIA?.response_time_ms) times.push(details.latest_uptime.INDIA.response_time_ms);
     return times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) + 'ms' : 'N/A';
   };
 

@@ -80,6 +80,7 @@ export default function WebsiteAnalytics() {
     const times = [];
     if (websiteData.latest_uptime.CANADA?.response_time_ms) times.push(websiteData.latest_uptime.CANADA.response_time_ms);
     if (websiteData.latest_uptime.LONDON?.response_time_ms) times.push(websiteData.latest_uptime.LONDON.response_time_ms);
+    if (websiteData.latest_uptime.INDIA?.response_time_ms) times.push(websiteData.latest_uptime.INDIA.response_time_ms);
     return times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
   };
 
@@ -87,7 +88,8 @@ export default function WebsiteAnalytics() {
     if (!websiteData?.latest_uptime) return false;
     const canadaUp = websiteData.latest_uptime.CANADA?.status?.toLowerCase() === 'up';
     const londonUp = websiteData.latest_uptime.LONDON?.status?.toLowerCase() === 'up';
-    return canadaUp || londonUp; // Active if at least one location is up
+    const indiaUp = websiteData.latest_uptime.INDIA?.status?.toLowerCase() === 'up';
+    return canadaUp || londonUp || indiaUp; // Active if at least one location is up
   };
 
   const formatChartData = () => {
@@ -95,20 +97,23 @@ export default function WebsiteAnalytics() {
     
     const canadaData = websiteData.graph_data.response_times_24h.CANADA || [];
     const londonData = websiteData.graph_data.response_times_24h.LONDON || [];
+    const indiaData = websiteData.graph_data.response_times_24h.INDIA || [];
     
     // Create a combined dataset with timestamps
     const combinedData = [];
-    const maxLength = Math.max(canadaData.length, londonData.length);
+    const maxLength = Math.max(canadaData.length, londonData.length, indiaData.length);
     
     for (let i = 0; i < maxLength; i++) {
       const canadaPoint = canadaData[i];
       const londonPoint = londonData[i];
+      const indiaPoint = indiaData[i];
       
-      if (canadaPoint || londonPoint) {
+      if (canadaPoint || londonPoint || indiaPoint) {
         combinedData.push({
-          time: canadaPoint?.time || londonPoint?.time || '',
+          time: canadaPoint?.time || londonPoint?.time || indiaPoint?.time || '',
           canada: canadaPoint?.value || null,
           london: londonPoint?.value || null,
+          india: indiaPoint?.value || null,
         });
       }
     }
@@ -125,6 +130,10 @@ export default function WebsiteAnalytics() {
     london: {
       label: "London (ms)",
       color: "hsl(142, 76%, 36%)",
+    },
+    india: {
+      label: "India (ms)",
+      color: "hsl(45, 93%, 47%)",
     },
   };
 
@@ -311,11 +320,13 @@ export default function WebsiteAnalytics() {
             <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-semibold">India</h4>
-                <StatusBadge status="warning">
-                  {typeof uptimeData.INDIA === 'string' ? uptimeData.INDIA : "N/A"}
+                <StatusBadge status={uptimeData.INDIA ? getStatusFromString(uptimeData.INDIA.status) : "warning"}>
+                  {uptimeData.INDIA ? uptimeData.INDIA.status : "N/A"}
                 </StatusBadge>
               </div>
-              <p className="text-2xl font-bold text-blue-400">N/A</p>
+              <p className="text-2xl font-bold text-blue-400">
+                {uptimeData.INDIA ? `${uptimeData.INDIA.response_time_ms}ms` : "N/A"}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -371,6 +382,15 @@ export default function WebsiteAnalytics() {
                 strokeWidth={2}
                 dot={{ fill: "var(--color-london)", strokeWidth: 2, r: 3 }}
                 activeDot={{ r: 5, stroke: "var(--color-london)", strokeWidth: 2 }}
+                connectNulls={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="india"
+                stroke="var(--color-india)"
+                strokeWidth={2}
+                dot={{ fill: "var(--color-india)", strokeWidth: 2, r: 3 }}
+                activeDot={{ r: 5, stroke: "var(--color-india)", strokeWidth: 2 }}
                 connectNulls={false}
               />
             </LineChart>
