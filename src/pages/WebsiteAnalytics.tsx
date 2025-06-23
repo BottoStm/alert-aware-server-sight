@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Globe, Clock, Zap, Activity, MapPin } from "lucide-react";
+import { ArrowLeft, Globe, Clock, Zap, Activity, MapPin, Shield, AlertTriangle, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
 import { WebsiteResponseChart } from "@/components/charts/WebsiteResponseChart";
@@ -22,7 +22,15 @@ const mockWebsites = [
     uptime: 99.9,
     lastCheck: "2 minutes ago",
     statusCode: 200,
-    region: "US-East-1"
+    region: "US-East-1",
+    ssl: {
+      issuer: "Let's Encrypt",
+      grade: "A+",
+      expiryDate: "2024-12-15",
+      daysLeft: 45,
+      protocol: "TLS 1.3",
+      keySize: 2048
+    }
   },
   {
     id: "2", 
@@ -33,7 +41,15 @@ const mockWebsites = [
     uptime: 99.7,
     lastCheck: "1 minute ago",
     statusCode: 200,
-    region: "EU-West-1"
+    region: "EU-West-1",
+    ssl: {
+      issuer: "DigiCert",
+      grade: "A",
+      expiryDate: "2024-08-22",
+      daysLeft: 12,
+      protocol: "TLS 1.2",
+      keySize: 2048
+    }
   },
   {
     id: "3",
@@ -44,7 +60,15 @@ const mockWebsites = [
     uptime: 98.5,
     lastCheck: "5 minutes ago",
     statusCode: 200,
-    region: "US-West-2"
+    region: "US-West-2",
+    ssl: {
+      issuer: "Let's Encrypt",
+      grade: "B",
+      expiryDate: "2024-07-18",
+      daysLeft: 5,
+      protocol: "TLS 1.2",
+      keySize: 1024
+    }
   },
   {
     id: "4",
@@ -55,15 +79,23 @@ const mockWebsites = [
     uptime: 95.2,
     lastCheck: "15 minutes ago",
     statusCode: 503,
-    region: "Asia-Pacific"
+    region: "Asia-Pacific",
+    ssl: {
+      issuer: "GeoTrust",
+      grade: "F",
+      expiryDate: "2024-06-10",
+      daysLeft: -3,
+      protocol: "TLS 1.0",
+      keySize: 1024
+    }
   }
 ];
 
 const serverLocations = [
-  { name: "US-East-1", responseTime: 245, status: "online" },
-  { name: "EU-West-1", responseTime: 187, status: "online" },
-  { name: "Asia-Pacific", responseTime: 432, status: "online" },
-  { name: "US-West-2", responseTime: 298, status: "warning" }
+  { name: "US-East-1", responseTime: 245, status: "online" as const },
+  { name: "EU-West-1", responseTime: 187, status: "online" as const },
+  { name: "Asia-Pacific", responseTime: 432, status: "online" as const },
+  { name: "US-West-2", responseTime: 298, status: "warning" as const }
 ];
 
 export default function WebsiteAnalytics() {
@@ -83,6 +115,23 @@ export default function WebsiteAnalytics() {
 
     return () => clearInterval(interval);
   }, [websiteId]);
+
+  const getGradeColor = (grade: string) => {
+    switch (grade) {
+      case "A+":
+      case "A": return "text-green-400";
+      case "B": return "text-amber-400";
+      case "C":
+      case "D": return "text-orange-400";
+      default: return "text-red-400";
+    }
+  };
+
+  const getSslStatus = (daysLeft: number) => {
+    if (daysLeft < 0) return "offline";
+    if (daysLeft <= 7) return "warning"; 
+    return "online";
+  };
 
   if (!website) {
     return (
@@ -163,6 +212,58 @@ export default function WebsiteAnalytics() {
 
         <LivePingCard livePing={livePing} />
       </div>
+
+      {/* SSL Certificate Information */}
+      <Card className="glassmorphism border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-blue-400" />
+            SSL Certificate Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Certificate Grade</h4>
+                <Badge 
+                  variant="outline" 
+                  className={getGradeColor(website.ssl.grade)}
+                >
+                  {website.ssl.grade}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">Issued by {website.ssl.issuer}</p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Expiry Status</h4>
+                <StatusBadge status={getSslStatus(website.ssl.daysLeft)}>
+                  {website.ssl.daysLeft < 0 ? "Expired" : `${website.ssl.daysLeft} days`}
+                </StatusBadge>
+              </div>
+              <p className="text-sm text-muted-foreground">Expires: {website.ssl.expiryDate}</p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Protocol</h4>
+                <Badge variant="outline">{website.ssl.protocol}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">Security Protocol</p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Key Size</h4>
+                <Badge variant="outline">{website.ssl.keySize} bits</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">Encryption Strength</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Server Locations Response Times */}
       <Card className="glassmorphism border-border/50">
