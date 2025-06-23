@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,13 +8,6 @@ import { Globe, Plus, Edit, Trash2, Shield } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
-const mockWebsiteDetails = {
-  "1": { name: "Main Website", status: "online" as const, responseTime: 245, uptime: 99.9, lastCheck: "2 minutes ago", statusCode: 200, region: "US-East-1" },
-  "2": { name: "API Endpoint", status: "online" as const, responseTime: 156, uptime: 99.7, lastCheck: "1 minute ago", statusCode: 200, region: "EU-West-1" },
-  "3": { name: "Admin Panel", status: "warning" as const, responseTime: 1250, uptime: 98.5, lastCheck: "5 minutes ago", statusCode: 200, region: "US-West-2" },
-  "4": { name: "CDN Assets", status: "offline" as const, responseTime: 0, uptime: 95.2, lastCheck: "15 minutes ago", statusCode: 503, region: "Asia-Pacific" }
-};
 
 export default function WebsiteChecks() {
   const [newUrl, setNewUrl] = useState("");
@@ -83,21 +76,15 @@ export default function WebsiteChecks() {
     deleteWebsiteMutation.mutate(id);
   };
 
-  const websites = websitesData || [];
+  const getDomainName = (url: string) => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url;
+    }
+  };
 
-  // Enhanced websites with mock details for display
-  const enhancedWebsites = websites.map(website => ({
-    ...website,
-    ...(mockWebsiteDetails[website.id] || {
-      name: new URL(website.url).hostname,
-      status: "online" as const,
-      responseTime: Math.floor(Math.random() * 500) + 100,
-      uptime: 99.0 + Math.random(),
-      lastCheck: "Just now",
-      statusCode: 200,
-      region: "US-East-1"
-    })
-  }));
+  const websites = websitesData || [];
 
   if (isLoading) {
     return (
@@ -137,7 +124,7 @@ export default function WebsiteChecks() {
       </div>
 
       <div className="grid gap-4">
-        {enhancedWebsites.map((website) => (
+        {websites.map((website) => (
           <Card key={website.id} className="glassmorphism border-border/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
             <CardContent className="p-6" onClick={() => window.location.href = `/website-analytics/${website.id}`}>
               <div className="flex items-center justify-between">
@@ -147,34 +134,27 @@ export default function WebsiteChecks() {
                     <Shield className={`w-6 h-6 ${website.protocol === 'https' ? 'text-green-400' : 'text-red-400'}`} />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">{website.name}</h3>
+                    <h3 className="font-semibold text-lg">{getDomainName(website.url)}</h3>
                     <p className="text-muted-foreground text-sm">{website.url}</p>
                     <div className="flex items-center gap-4 mt-2">
                       <span className="text-xs text-muted-foreground">
                         Protocol: {website.protocol?.toUpperCase()}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Status: {website.statusCode || 'Unknown'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Response: {website.responseTime || 'N/A'}ms
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Uptime: {website.uptime?.toFixed(1) || 'N/A'}%
-                      </span>
-                      <span className="text-xs text-muted-foreground">
                         Added: {new Date(website.created_at).toLocaleDateString()}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Status: {website.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Badge variant="outline">{website.region || 'Unknown'}</Badge>
                   <Badge variant={website.protocol === 'https' ? 'default' : 'destructive'}>
                     {website.protocol === 'https' ? 'SSL Secure' : 'Not Secure'}
                   </Badge>
-                  <StatusBadge status={website.status || 'online'}>
-                    {(website.status || 'online').charAt(0).toUpperCase() + (website.status || 'online').slice(1)}
+                  <StatusBadge status={website.is_active ? 'online' : 'offline'}>
+                    {website.is_active ? 'Active' : 'Inactive'}
                   </StatusBadge>
                   <Button 
                     variant="ghost" 

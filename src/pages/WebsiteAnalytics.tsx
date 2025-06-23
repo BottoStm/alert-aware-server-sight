@@ -1,3 +1,4 @@
+
 import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,101 +8,45 @@ import { ArrowLeft, Globe, Clock, Zap, MapPin, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "@/components/StatusBadge";
 import { WebsiteResponseChart } from "@/components/charts/WebsiteResponseChart";
-
-const mockWebsites = [
-  {
-    id: "1",
-    name: "Main Website",
-    url: "https://example.com",
-    status: "online" as const,
-    responseTime: 245,
-    uptime: 99.9,
-    lastCheck: "2 minutes ago",
-    statusCode: 200,
-    region: "US-East-1",
-    ssl: {
-      issuer: "Let's Encrypt",
-      grade: "A+",
-      expiryDate: "2024-12-15",
-      daysLeft: 45,
-      protocol: "TLS 1.3",
-      keySize: 2048
-    }
-  },
-  {
-    id: "2", 
-    name: "API Endpoint",
-    url: "https://api.example.com",
-    status: "online" as const,
-    responseTime: 156,
-    uptime: 99.7,
-    lastCheck: "1 minute ago",
-    statusCode: 200,
-    region: "EU-West-1",
-    ssl: {
-      issuer: "DigiCert",
-      grade: "A",
-      expiryDate: "2024-08-22",
-      daysLeft: 12,
-      protocol: "TLS 1.2",
-      keySize: 2048
-    }
-  },
-  {
-    id: "3",
-    name: "Admin Panel", 
-    url: "https://admin.example.com",
-    status: "warning" as const,
-    responseTime: 1250,
-    uptime: 98.5,
-    lastCheck: "5 minutes ago",
-    statusCode: 200,
-    region: "US-West-2",
-    ssl: {
-      issuer: "Let's Encrypt",
-      grade: "B",
-      expiryDate: "2024-07-18",
-      daysLeft: 5,
-      protocol: "TLS 1.2",
-      keySize: 1024
-    }
-  },
-  {
-    id: "4",
-    name: "CDN Assets",
-    url: "https://cdn.example.com",
-    status: "offline" as const,
-    responseTime: 0,
-    uptime: 95.2,
-    lastCheck: "15 minutes ago",
-    statusCode: 503,
-    region: "Asia-Pacific",
-    ssl: {
-      issuer: "GeoTrust",
-      grade: "F",
-      expiryDate: "2024-06-10",
-      daysLeft: -3,
-      protocol: "TLS 1.0",
-      keySize: 1024
-    }
-  }
-];
-
-const serverLocations = [
-  { name: "London", responseTime: 245, status: "online" as const },
-  { name: "Canada", responseTime: 187, status: "online" as const },
-  { name: "India", responseTime: 432, status: "online" as const }
-];
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 
 export default function WebsiteAnalytics() {
   const { websiteId } = useParams();
   const navigate = useNavigate();
-  const [website, setWebsite] = useState(null);
+  const { token } = useAuth();
 
-  useEffect(() => {
-    const foundWebsite = mockWebsites.find(w => w.id === websiteId);
-    setWebsite(foundWebsite);
-  }, [websiteId]);
+  // Fetch website details from API
+  const { data: websiteData, isLoading } = useQuery({
+    queryKey: ['website-details', websiteId],
+    queryFn: async () => {
+      const response = await fetch(`https://api.theservermonitor.com/website?id=${websiteId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      return data.success ? data.data : null;
+    },
+    enabled: !!token && !!websiteId
+  });
+
+  const getDomainName = (url: string) => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url;
+    }
+  };
+
+  const getGradeFromProtocol = (protocol: number) => {
+    switch (protocol) {
+      case 3: return "A+";
+      case 2: return "A";
+      case 1: return "B";
+      default: return "C";
+    }
+  };
 
   const getGradeColor = (grade: string) => {
     switch (grade) {
@@ -120,7 +65,31 @@ export default function WebsiteAnalytics() {
     return "online";
   };
 
-  if (!website) {
+  const getStatusFromString = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "up": return "online";
+      case "down": return "offline";
+      default: return "warning";
+    }
+  };
+
+  const getAverageResponseTime = () => {
+    if (!websiteData?.latest_uptime) return 0;
+    const times = [];
+    if (websiteData.latest_uptime.CANADA?.response_time_ms) times.push(websiteData.latest_uptime.CANADA.response_time_ms);
+    if (websiteData.latest_uptime.LONDON?.response_time_ms) times.push(websiteData.latest_uptime.LONDON.response_time_ms);
+    return times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="text-center p-8">
+        <h1 className="text-2xl font-bold">Loading website details...</h1>
+      </div>
+    );
+  }
+
+  if (!websiteData) {
     return (
       <div className="text-center p-8">
         <h1 className="text-2xl font-bold">Website Not Found</h1>
@@ -131,6 +100,14 @@ export default function WebsiteAnalytics() {
       </div>
     );
   }
+
+  const website = websiteData.website_info;
+  const sslInfo = websiteData.ssl_info;
+  const uptimeData = websiteData.latest_uptime;
+  const graphData = websiteData.graph_data;
+
+  const domainName = getDomainName(website.url);
+  const sslGrade = getGradeFromProtocol(sslInfo.protocol_from_cert);
 
   return (
     <div className="space-y-6">
@@ -146,28 +123,27 @@ export default function WebsiteAnalytics() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-              {website.name} Analytics
+              {domainName}
             </h1>
             <p className="text-muted-foreground mt-1">{website.url}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant="outline">{website.region}</Badge>
-          <StatusBadge status={website.status}>
-            {website.status.charAt(0).toUpperCase() + website.status.slice(1)}
+          <StatusBadge status={website.is_active ? "online" : "offline"}>
+            {website.is_active ? "Active" : "Inactive"}
           </StatusBadge>
         </div>
       </div>
 
-      {/* Overview Cards - Removed Live Ping */}
+      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="glassmorphism border-border/50">
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <Globe className="w-8 h-8 text-blue-400" />
               <div>
-                <p className="text-sm text-muted-foreground">Status Code</p>
-                <p className="text-2xl font-bold">{website.statusCode}</p>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <p className="text-2xl font-bold">{website.is_active ? "Active" : "Inactive"}</p>
               </div>
             </div>
           </CardContent>
@@ -178,8 +154,8 @@ export default function WebsiteAnalytics() {
             <div className="flex items-center gap-3">
               <Clock className="w-8 h-8 text-green-400" />
               <div>
-                <p className="text-sm text-muted-foreground">Response Time</p>
-                <p className="text-2xl font-bold">{website.responseTime}ms</p>
+                <p className="text-sm text-muted-foreground">Avg Response Time</p>
+                <p className="text-2xl font-bold">{getAverageResponseTime()}ms</p>
               </div>
             </div>
           </CardContent>
@@ -190,8 +166,8 @@ export default function WebsiteAnalytics() {
             <div className="flex items-center gap-3">
               <Zap className="w-8 h-8 text-amber-400" />
               <div>
-                <p className="text-sm text-muted-foreground">Uptime</p>
-                <p className="text-2xl font-bold">{website.uptime.toFixed(1)}%</p>
+                <p className="text-sm text-muted-foreground">Uptime (24h)</p>
+                <p className="text-2xl font-bold">{graphData.uptime_percentage_24h}%</p>
               </div>
             </div>
           </CardContent>
@@ -213,44 +189,44 @@ export default function WebsiteAnalytics() {
                 <h4 className="font-semibold">Certificate Grade</h4>
                 <Badge 
                   variant="outline" 
-                  className={getGradeColor(website.ssl.grade)}
+                  className={getGradeColor(sslGrade)}
                 >
-                  {website.ssl.grade}
+                  {sslGrade}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">Issued by {website.ssl.issuer}</p>
+              <p className="text-sm text-muted-foreground">Issued by {sslInfo.issued_by}</p>
             </div>
 
             <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-semibold">Expiry Status</h4>
-                <StatusBadge status={getSslStatus(website.ssl.daysLeft)}>
-                  {website.ssl.daysLeft < 0 ? "Expired" : `${website.ssl.daysLeft} days`}
+                <StatusBadge status={getSslStatus(sslInfo.days_until_expiry)}>
+                  {sslInfo.days_until_expiry < 0 ? "Expired" : `${sslInfo.days_until_expiry} days`}
                 </StatusBadge>
               </div>
-              <p className="text-sm text-muted-foreground">Expires: {website.ssl.expiryDate}</p>
+              <p className="text-sm text-muted-foreground">Expires: {new Date(sslInfo.expiry_date).toLocaleDateString()}</p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Status</h4>
+                <Badge variant="outline">{sslInfo.expiry_status}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">Certificate Status</p>
             </div>
 
             <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-semibold">Protocol</h4>
-                <Badge variant="outline">{website.ssl.protocol}</Badge>
+                <Badge variant="outline">TLS 1.{sslInfo.protocol_from_cert}</Badge>
               </div>
               <p className="text-sm text-muted-foreground">Security Protocol</p>
-            </div>
-
-            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold">Key Size</h4>
-                <Badge variant="outline">{website.ssl.keySize} bits</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">Encryption Strength</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Server Locations Response Times */}
+      {/* Response Times by Location */}
       <Card className="glassmorphism border-border/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -260,17 +236,39 @@ export default function WebsiteAnalytics() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {serverLocations.map((location) => (
-              <div key={location.name} className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold">{location.name}</h4>
-                  <StatusBadge status={location.status}>
-                    {location.status.charAt(0).toUpperCase() + location.status.slice(1)}
-                  </StatusBadge>
-                </div>
-                <p className="text-2xl font-bold text-blue-400">{location.responseTime}ms</p>
+            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">London</h4>
+                <StatusBadge status={uptimeData.LONDON ? getStatusFromString(uptimeData.LONDON.status) : "warning"}>
+                  {uptimeData.LONDON ? uptimeData.LONDON.status : "N/A"}
+                </StatusBadge>
               </div>
-            ))}
+              <p className="text-2xl font-bold text-blue-400">
+                {uptimeData.LONDON ? `${uptimeData.LONDON.response_time_ms}ms` : "N/A"}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Canada</h4>
+                <StatusBadge status={uptimeData.CANADA ? getStatusFromString(uptimeData.CANADA.status) : "warning"}>
+                  {uptimeData.CANADA ? uptimeData.CANADA.status : "N/A"}
+                </StatusBadge>
+              </div>
+              <p className="text-2xl font-bold text-blue-400">
+                {uptimeData.CANADA ? `${uptimeData.CANADA.response_time_ms}ms` : "N/A"}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">India</h4>
+                <StatusBadge status="warning">
+                  {typeof uptimeData.INDIA === 'string' ? uptimeData.INDIA : "N/A"}
+                </StatusBadge>
+              </div>
+              <p className="text-2xl font-bold text-blue-400">N/A</p>
+            </div>
           </div>
         </CardContent>
       </Card>
