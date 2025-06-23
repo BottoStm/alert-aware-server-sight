@@ -225,7 +225,7 @@ export default function WebsiteChecks() {
                         <p className="text-muted-foreground text-sm">{website.url}</p>
                         <div className="flex items-center gap-4 mt-2">
                           <span className="text-xs text-muted-foreground">
-                            Protocol: {website.protocol?.upper()}
+                            Protocol: {website.protocol?.toUpperCase()}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             Status: {website.statusCode || 'Unknown'}
