@@ -29,6 +29,33 @@ export default function WebsiteChecks() {
     enabled: !!token
   });
 
+  // Fetch detailed data for each website
+  const { data: websiteDetails } = useQuery({
+    queryKey: ['website-details-all'],
+    queryFn: async () => {
+      if (!websitesData?.length) return {};
+      
+      const details = {};
+      for (const website of websitesData) {
+        try {
+          const response = await fetch(`https://api.theservermonitor.com/website?id=${website.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          const data = await response.json();
+          if (data.success) {
+            details[website.id] = data.data;
+          }
+        } catch (error) {
+          console.error(`Error fetching details for website ${website.id}:`, error);
+        }
+      }
+      return details;
+    },
+    enabled: !!token && !!websitesData?.length
+  });
+
   // Add website mutation
   const addWebsiteMutation = useMutation({
     mutationFn: async (urls: string[]) => {
@@ -44,6 +71,7 @@ export default function WebsiteChecks() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websites'] });
+      queryClient.invalidateQueries({ queryKey: ['website-details-all'] });
       setNewUrl("");
     }
   });
@@ -63,6 +91,7 @@ export default function WebsiteChecks() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websites'] });
+      queryClient.invalidateQueries({ queryKey: ['website-details-all'] });
     }
   });
 
@@ -84,16 +113,12 @@ export default function WebsiteChecks() {
     }
   };
 
-  const getWebsiteStatus = (website: any) => {
-    // Check if website has latest uptime data and if it's actually up
-    if (website.latest_uptime) {
-      const locations = website.latest_uptime;
-      const hasUpLocation = Object.values(locations).some((location: any) => 
-        typeof location === 'object' && location.status?.toLowerCase() === 'up'
-      );
-      return hasUpLocation ? 'active' : 'inactive';
-    }
-    return website.is_active ? 'active' : 'inactive';
+  const getAverageResponseTime = (details: any) => {
+    if (!details?.latest_uptime) return 'N/A';
+    const times = [];
+    if (details.latest_uptime.CANADA?.response_time_ms) times.push(details.latest_uptime.CANADA.response_time_ms);
+    if (details.latest_uptime.LONDON?.response_time_ms) times.push(details.latest_uptime.LONDON.response_time_ms);
+    return times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) + 'ms' : 'N/A';
   };
 
   const websites = websitesData || [];
@@ -136,58 +161,66 @@ export default function WebsiteChecks() {
       </div>
 
       <div className="grid gap-4">
-        {websites.map((website) => (
-          <Card key={website.id} className="glassmorphism border-border/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
-            <CardContent className="p-6" onClick={() => window.location.href = `/website-analytics/${website.id}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-8 h-8 text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{getDomainName(website.url)}</h3>
-                    <p className="text-muted-foreground text-sm">{website.url}</p>
-                    <div className="flex items-center gap-4 mt-2">
-                      <span className="text-xs text-muted-foreground">
-                        Added: {new Date(website.created_at).toLocaleDateString()}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Preview: {getDomainName(website.url)}
-                      </span>
+        {websites.map((website) => {
+          const details = websiteDetails?.[website.id];
+          return (
+            <Card key={website.id} className="glassmorphism border-border/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+              <CardContent className="p-6" onClick={() => window.location.href = `/website-analytics/${website.id}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-8 h-8 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">{getDomainName(website.url)}</h3>
+                      <p className="text-muted-foreground text-sm">{website.url}</p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <span className="text-xs text-muted-foreground">
+                          Added: {new Date(website.created_at).toLocaleDateString()}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Preview: {getDomainName(website.url)}
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-sm font-medium">
+                        Uptime: {details?.graph_data?.uptime_percentage_24h || 'N/A'}%
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Avg Response: {getAverageResponseTime(details)}
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Edit functionality
+                      }}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteWebsite(website.id);
+                      }}
+                      className="text-red-400 hover:text-red-300"
+                      disabled={deleteWebsiteMutation.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={getWebsiteStatus(website) === 'active' ? 'online' : 'offline'}>
-                    {getWebsiteStatus(website) === 'active' ? 'Active' : 'Inactive'}
-                  </StatusBadge>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Edit functionality
-                    }}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteWebsite(website.id);
-                    }}
-                    className="text-red-400 hover:text-red-300"
-                    disabled={deleteWebsiteMutation.isPending}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
