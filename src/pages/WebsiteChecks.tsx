@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Plus, Edit, Trash2, Shield } from "lucide-react";
+import { Globe, Plus, Edit, Trash2 } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -84,6 +84,18 @@ export default function WebsiteChecks() {
     }
   };
 
+  const getWebsiteStatus = (website: any) => {
+    // Check if website has latest uptime data and if it's actually up
+    if (website.latest_uptime) {
+      const locations = website.latest_uptime;
+      const hasUpLocation = Object.values(locations).some((location: any) => 
+        typeof location === 'object' && location.status?.toLowerCase() === 'up'
+      );
+      return hasUpLocation ? 'active' : 'inactive';
+    }
+    return website.is_active ? 'active' : 'inactive';
+  };
+
   const websites = websitesData || [];
 
   if (isLoading) {
@@ -131,30 +143,23 @@ export default function WebsiteChecks() {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Globe className="w-8 h-8 text-blue-400" />
-                    <Shield className={`w-6 h-6 ${website.protocol === 'https' ? 'text-green-400' : 'text-red-400'}`} />
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">{getDomainName(website.url)}</h3>
                     <p className="text-muted-foreground text-sm">{website.url}</p>
                     <div className="flex items-center gap-4 mt-2">
                       <span className="text-xs text-muted-foreground">
-                        Protocol: {website.protocol?.toUpperCase()}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
                         Added: {new Date(website.created_at).toLocaleDateString()}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Status: {website.is_active ? 'Active' : 'Inactive'}
+                        Preview: {getDomainName(website.url)}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Badge variant={website.protocol === 'https' ? 'default' : 'destructive'}>
-                    {website.protocol === 'https' ? 'SSL Secure' : 'Not Secure'}
-                  </Badge>
-                  <StatusBadge status={website.is_active ? 'online' : 'offline'}>
-                    {website.is_active ? 'Active' : 'Inactive'}
+                  <StatusBadge status={getWebsiteStatus(website) === 'active' ? 'online' : 'offline'}>
+                    {getWebsiteStatus(website) === 'active' ? 'Active' : 'Inactive'}
                   </StatusBadge>
                   <Button 
                     variant="ghost" 
