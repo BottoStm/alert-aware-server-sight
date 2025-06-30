@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,12 +135,12 @@ export default function ServerDetails() {
     return {
       cpu: latestCpu ? parseFloat(latestCpu.total) : 0,
       memory: latestMemory ? parseFloat(latestMemory.percent) : 0,
-      disk: 45, // Mock disk usage percentage (not provided in API)
-      networkSent: totalNetworkSent,
-      networkRecv: totalNetworkRecv,
-      diskRead: totalDiskRead,
-      diskWrite: totalDiskWrite,
-      uptime: "Unknown" // Not provided in current API
+      memoryUsedGB: latestMemory ? (parseInt(latestMemory.used) / (1024 * 1024 * 1024)).toFixed(1) : "0",
+      memoryTotalGB: latestMemory ? (parseInt(latestMemory.total) / (1024 * 1024 * 1024)).toFixed(1) : "0",
+      networkSentMB: (totalNetworkSent / (1024 * 1024)).toFixed(1),
+      networkRecvMB: (totalNetworkRecv / (1024 * 1024)).toFixed(1),
+      diskReadGB: (totalDiskRead / (1024 * 1024 * 1024)).toFixed(1),
+      diskWriteGB: (totalDiskWrite / (1024 * 1024 * 1024)).toFixed(1)
     };
   };
 
@@ -147,7 +148,7 @@ export default function ServerDetails() {
   const formatCpuChartData = () => {
     if (!serverData?.history_24h?.cpu) return [];
     
-    return serverData.history_24h.cpu.map((item: any) => ({
+    return serverData.history_24h.cpu.slice(-24).map((item: any) => ({
       time: new Date(item.report_time).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
@@ -164,39 +165,42 @@ export default function ServerDetails() {
   const formatMemoryChartData = () => {
     if (!serverData?.history_24h?.memory) return [];
     
-    return serverData.history_24h.memory.map((item: any) => ({
+    return serverData.history_24h.memory.slice(-24).map((item: any) => ({
       time: new Date(item.report_time).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
         hour12: false 
       }),
-      used: parseFloat(item.percent),
-      available: 100 - parseFloat(item.percent),
+      percent: parseFloat(item.percent),
       usedGB: (parseInt(item.used) / (1024 * 1024 * 1024)).toFixed(1),
-      totalGB: (parseInt(item.total) / (1024 * 1024 * 1024)).toFixed(1)
+      totalGB: (parseInt(item.total) / (1024 * 1024 * 1024)).toFixed(1),
+      availableGB: (parseInt(item.available) / (1024 * 1024 * 1024)).toFixed(1)
     }));
   };
 
-  // Format chart data for Network usage
+  // Format chart data for Network usage  
   const formatNetworkChartData = () => {
     if (!serverData?.history_24h?.network) return [];
     
     const chartData = [];
     const timePoints = new Set();
     
-    // Collect all time points
+    // Collect all time points from all interfaces
     Object.values(serverData.history_24h.network).forEach((interfaceData: any) => {
       interfaceData.forEach((item: any) => {
         timePoints.add(item.report_time);
       });
     });
     
-    // Create data points for each time
-    Array.from(timePoints).sort().forEach((time: any) => {
+    // Create data points for each time, excluding loopback interface
+    Array.from(timePoints).sort().slice(-24).forEach((time: any) => {
       let totalSent = 0;
       let totalRecv = 0;
       
-      Object.values(serverData.history_24h.network).forEach((interfaceData: any) => {
+      Object.entries(serverData.history_24h.network).forEach(([interfaceName, interfaceData]: [string, any]) => {
+        // Skip loopback interface as it's usually not relevant for monitoring
+        if (interfaceName === 'lo') return;
+        
         const dataPoint = interfaceData.find((item: any) => item.report_time === time);
         if (dataPoint) {
           totalSent += parseInt(dataPoint.bytes_sent || 0);
@@ -210,8 +214,8 @@ export default function ServerDetails() {
           minute: '2-digit',
           hour12: false 
         }),
-        sent: Math.round(totalSent / (1024 * 1024)), // Convert to MB
-        recv: Math.round(totalRecv / (1024 * 1024))  // Convert to MB
+        sent: (totalSent / (1024 * 1024)).toFixed(2), // Convert to MB with decimals
+        recv: (totalRecv / (1024 * 1024)).toFixed(2)  // Convert to MB with decimals
       });
     });
     
@@ -226,8 +230,7 @@ export default function ServerDetails() {
       iowait: { label: "I/O Wait (%)", color: "hsl(0, 84%, 60%)" }
     },
     memory: {
-      used: { label: "Used Memory (%)", color: "hsl(217, 91%, 60%)" },
-      available: { label: "Available Memory (%)", color: "hsl(142, 76%, 36%)" }
+      percent: { label: "Memory Usage (%)", color: "hsl(217, 91%, 60%)" }
     },
     network: {
       sent: { label: "Sent (MB)", color: "hsl(217, 91%, 60%)" },
@@ -238,6 +241,7 @@ export default function ServerDetails() {
   if (isLoading) {
     return (
       <div className="text-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
         <h1 className="text-2xl font-bold">Loading server details...</h1>
         <p className="text-muted-foreground">Please wait while we fetch the server information.</p>
       </div>
@@ -315,59 +319,96 @@ export default function ServerDetails() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Server className="w-5 h-5 text-blue-400" />
-            Server Overview
+            Current Performance Metrics
           </CardTitle>
         </CardHeader>
         <CardContent>
           {hasMonitoringData && metrics ? (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* CPU Usage */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">CPU Usage</span>
-                  <span className={`text-sm font-medium ${
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    <Activity className="w-4 h-4" />
+                    CPU Usage
+                  </span>
+                  <span className={`text-lg font-bold ${
                     metrics.cpu > 80 ? 'text-red-400' : 
                     metrics.cpu > 60 ? 'text-amber-400' : 'text-green-400'
                   }`}>
                     {metrics.cpu.toFixed(1)}%
                   </span>
                 </div>
-                <Progress value={metrics.cpu} className="h-2" />
+                <Progress value={metrics.cpu} className="h-3" />
+                <p className="text-xs text-muted-foreground">
+                  {metrics.cpu > 80 ? 'High usage detected' : 
+                   metrics.cpu > 60 ? 'Moderate usage' : 'Normal usage'}
+                </p>
               </div>
               
-              <div className="space-y-2">
+              {/* Memory Usage */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Memory</span>
-                  <span className={`text-sm font-medium ${
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    <Database className="w-4 h-4" />
+                    Memory
+                  </span>
+                  <span className={`text-lg font-bold ${
                     metrics.memory > 80 ? 'text-red-400' : 
                     metrics.memory > 60 ? 'text-amber-400' : 'text-green-400'
                   }`}>
                     {metrics.memory.toFixed(1)}%
                   </span>
                 </div>
-                <Progress value={metrics.memory} className="h-2" />
+                <Progress value={metrics.memory} className="h-3" />
+                <p className="text-xs text-muted-foreground">
+                  {metrics.memoryUsedGB} GB / {metrics.memoryTotalGB} GB used
+                </p>
               </div>
               
-              <div className="space-y-2">
+              {/* Network I/O */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Network I/O</span>
-                  <span className="text-sm font-medium text-blue-400">
-                    {(metrics.networkSent / (1024 * 1024)).toFixed(1)} MB
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    <NetworkIcon className="w-4 h-4" />
+                    Network I/O
+                  </span>
+                  <span className="text-lg font-bold text-blue-400">
+                    Active
                   </span>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  ↑ {(metrics.networkSent / (1024 * 1024)).toFixed(1)} MB ↓ {(metrics.networkRecv / (1024 * 1024)).toFixed(1)} MB
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-green-400">↑ Sent</span>
+                    <span>{metrics.networkSentMB} MB</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-blue-400">↓ Received</span>
+                    <span>{metrics.networkRecvMB} MB</span>
+                  </div>
                 </div>
               </div>
               
-              <div className="space-y-2">
+              {/* Disk I/O */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Disk I/O</span>
-                  <span className="text-sm font-medium text-purple-400">
-                    {(metrics.diskWrite / (1024 * 1024 * 1024)).toFixed(1)} GB
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    <HardDrive className="w-4 h-4" />
+                    Disk I/O
+                  </span>
+                  <span className="text-lg font-bold text-purple-400">
+                    Active
                   </span>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  R: {(metrics.diskRead / (1024 * 1024 * 1024)).toFixed(1)} GB W: {(metrics.diskWrite / (1024 * 1024 * 1024)).toFixed(1)} GB
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-blue-400">Read</span>
+                    <span>{metrics.diskReadGB} GB</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-orange-400">Write</span>
+                    <span>{metrics.diskWriteGB} GB</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -384,35 +425,37 @@ export default function ServerDetails() {
       </Card>
 
       {/* Monitoring Agent Setup */}
-      <Card className="glassmorphism border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-amber-400" />
-            Monitoring Agent Setup
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-            <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
-              Install Monitoring Agent
-            </h4>
-            <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
-              To see real-time metrics for this server, install our monitoring agent using the command below:
-            </p>
-            <div className="bg-slate-900 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
-              curl -sSL https://api.theservermonitor.com/install.sh | bash -s {server.unique_identifier}
+      {!hasMonitoringData && (
+        <Card className="glassmorphism border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-amber-400" />
+              Monitoring Agent Setup
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                Install Monitoring Agent
+              </h4>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                To see real-time metrics for this server, install our monitoring agent using the command below:
+              </p>
+              <div className="bg-slate-900 text-green-400 p-3 rounded font-mono text-sm overflow-x-auto">
+                curl -sSL https://api.theservermonitor.com/install.sh | bash -s {server.unique_identifier}
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                This command will install and configure the monitoring agent with your server's unique identifier.
+              </p>
             </div>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-              This command will install and configure the monitoring agent with your server's unique identifier.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Performance Charts - Only show if we have data */}
       {hasMonitoringData && (
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-foreground">Performance Metrics (24h)</h2>
+          <h2 className="text-2xl font-bold text-foreground">Performance History (24h)</h2>
           
           {/* CPU Usage Chart */}
           {serverData.history_24h.cpu && serverData.history_24h.cpu.length > 0 && (
@@ -420,52 +463,57 @@ export default function ServerDetails() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="w-5 h-5 text-blue-400" />
-                  CPU Usage History
+                  CPU Usage Over Time
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig.cpu}>
-                  <LineChart data={formatCpuChartData()}>
-                    <XAxis 
-                      dataKey="time" 
-                      tickLine={false}
-                      axisLine={false}
-                      className="text-xs"
-                    />
-                    <YAxis 
-                      domain={[0, 100]}
-                      tickLine={false}
-                      axisLine={false}
-                      className="text-xs"
-                    />
-                    <ChartTooltip 
-                      content={<ChartTooltipContent />}
-                      cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      stroke="var(--color-total)"
-                      strokeWidth={2}
-                      dot={{ fill: "var(--color-total)", strokeWidth: 2, r: 3 }}
-                      activeDot={{ r: 5, stroke: "var(--color-total)", strokeWidth: 2 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="user"
-                      stroke="var(--color-user)"
-                      strokeWidth={1}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="system"
-                      stroke="var(--color-system)"
-                      strokeWidth={1}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ChartContainer>
+                <div className="h-80">
+                  <ChartContainer config={chartConfig.cpu}>
+                    <LineChart data={formatCpuChartData()}>
+                      <XAxis 
+                        dataKey="time" 
+                        tickLine={false}
+                        axisLine={false}
+                        className="text-xs"
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis 
+                        domain={[0, 100]}
+                        tickLine={false}
+                        axisLine={false}
+                        className="text-xs"
+                      />
+                      <ChartTooltip 
+                        content={<ChartTooltipContent />}
+                        cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="total"
+                        stroke="var(--color-total)"
+                        strokeWidth={3}
+                        dot={false}
+                        activeDot={{ r: 6, stroke: "var(--color-total)", strokeWidth: 2 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="user"
+                        stroke="var(--color-user)"
+                        strokeWidth={2}
+                        dot={false}
+                        strokeDasharray="5 5"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="system"
+                        stroke="var(--color-system)"
+                        strokeWidth={2}
+                        dot={false}
+                        strokeDasharray="3 3"
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -476,43 +524,46 @@ export default function ServerDetails() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="w-5 h-5 text-blue-400" />
-                  Memory Usage History
+                  Memory Usage Over Time
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig.memory}>
-                  <AreaChart data={formatMemoryChartData()}>
-                    <XAxis 
-                      dataKey="time" 
-                      tickLine={false}
-                      axisLine={false}
-                      className="text-xs"
-                    />
-                    <YAxis 
-                      domain={[0, 100]}
-                      tickLine={false}
-                      axisLine={false}
-                      className="text-xs"
-                    />
-                    <ChartTooltip 
-                      content={<ChartTooltipContent 
-                        formatter={(value, name) => [
-                          name === 'used' ? `${value}% (${formatMemoryChartData().find(d => d.used === value)?.usedGB} GB)` : `${value}%`,
-                          name === 'used' ? 'Used Memory' : 'Available Memory'
-                        ]}
-                      />}
-                      cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="used"
-                      stackId="1"
-                      stroke="var(--color-used)"
-                      fill="var(--color-used)"
-                      fillOpacity={0.6}
-                    />
-                  </AreaChart>
-                </ChartContainer>
+                <div className="h-80">
+                  <ChartContainer config={chartConfig.memory}>
+                    <AreaChart data={formatMemoryChartData()}>
+                      <XAxis 
+                        dataKey="time" 
+                        tickLine={false}
+                        axisLine={false}
+                        className="text-xs"
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis 
+                        domain={[0, 100]}
+                        tickLine={false}
+                        axisLine={false}
+                        className="text-xs"
+                      />
+                      <ChartTooltip 
+                        content={<ChartTooltipContent 
+                          formatter={(value, name, props) => [
+                            `${value}% (${props?.payload?.usedGB} GB / ${props?.payload?.totalGB} GB)`,
+                            'Memory Usage'
+                          ]}
+                        />}
+                        cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="percent"
+                        stroke="var(--color-percent)"
+                        fill="var(--color-percent)"
+                        fillOpacity={0.3}
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -523,45 +574,53 @@ export default function ServerDetails() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <NetworkIcon className="w-5 h-5 text-blue-400" />
-                  Network Usage History
+                  Network Traffic Over Time
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig.network}>
-                  <LineChart data={formatNetworkChartData()}>
-                    <XAxis 
-                      dataKey="time" 
-                      tickLine={false}
-                      axisLine={false}
-                      className="text-xs"
-                    />
-                    <YAxis 
-                      tickLine={false}
-                      axisLine={false}
-                      className="text-xs"
-                    />
-                    <ChartTooltip 
-                      content={<ChartTooltipContent />}
-                      cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="sent"
-                      stroke="var(--color-sent)"
-                      strokeWidth={2}
-                      dot={{ fill: "var(--color-sent)", strokeWidth: 2, r: 3 }}
-                      activeDot={{ r: 5, stroke: "var(--color-sent)", strokeWidth: 2 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="recv"
-                      stroke="var(--color-recv)"
-                      strokeWidth={2}
-                      dot={{ fill: "var(--color-recv)", strokeWidth: 2, r: 3 }}
-                      activeDot={{ r: 5, stroke: "var(--color-recv)", strokeWidth: 2 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
+                <div className="h-80">
+                  <ChartContainer config={chartConfig.network}>
+                    <LineChart data={formatNetworkChartData()}>
+                      <XAxis 
+                        dataKey="time" 
+                        tickLine={false}
+                        axisLine={false}
+                        className="text-xs"
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis 
+                        tickLine={false}
+                        axisLine={false}
+                        className="text-xs"
+                      />
+                      <ChartTooltip 
+                        content={<ChartTooltipContent 
+                          formatter={(value, name) => [
+                            `${value} MB`,
+                            name === 'sent' ? 'Data Sent' : 'Data Received'
+                          ]}
+                        />}
+                        cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="sent"
+                        stroke="var(--color-sent)"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 5, stroke: "var(--color-sent)", strokeWidth: 2 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="recv"
+                        stroke="var(--color-recv)"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 5, stroke: "var(--color-recv)", strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </div>
               </CardContent>
             </Card>
           )}
