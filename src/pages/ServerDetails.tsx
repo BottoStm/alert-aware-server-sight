@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -144,82 +143,152 @@ export default function ServerDetails() {
     };
   };
 
-  // Format chart data for CPU usage
+  // Format chart data for CPU usage - last 24 hours only, hourly
   const formatCpuChartData = () => {
     if (!serverData?.history_24h?.cpu) return [];
     
-    return serverData.history_24h.cpu.slice(-24).map((item: any) => ({
-      time: new Date(item.report_time).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      }),
-      total: parseFloat(item.total),
-      user: parseFloat(item.user),
-      system: parseFloat(item.system),
-      iowait: parseFloat(item.iowait)
-    }));
-  };
-
-  // Format chart data for Memory usage
-  const formatMemoryChartData = () => {
-    if (!serverData?.history_24h?.memory) return [];
+    // Group data by hour and take the latest reading for each hour
+    const hourlyData = new Map();
     
-    return serverData.history_24h.memory.slice(-24).map((item: any) => ({
-      time: new Date(item.report_time).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      }),
-      percent: parseFloat(item.percent),
-      usedGB: (parseInt(item.used) / (1024 * 1024 * 1024)).toFixed(1),
-      totalGB: (parseInt(item.total) / (1024 * 1024 * 1024)).toFixed(1),
-      availableGB: (parseInt(item.available) / (1024 * 1024 * 1024)).toFixed(1)
-    }));
-  };
-
-  // Format chart data for Network usage  
-  const formatNetworkChartData = () => {
-    if (!serverData?.history_24h?.network) return [];
-    
-    const chartData = [];
-    const timePoints = new Set();
-    
-    // Collect all time points from all interfaces
-    Object.values(serverData.history_24h.network).forEach((interfaceData: any) => {
-      interfaceData.forEach((item: any) => {
-        timePoints.add(item.report_time);
-      });
+    serverData.history_24h.cpu.forEach((item: any) => {
+      const date = new Date(item.report_time);
+      const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
+      
+      if (!hourlyData.has(hourKey) || new Date(item.report_time) > new Date(hourlyData.get(hourKey).report_time)) {
+        hourlyData.set(hourKey, item);
+      }
     });
     
-    // Create data points for each time, excluding loopback interface
-    Array.from(timePoints).sort().slice(-24).forEach((time: any) => {
-      let totalSent = 0;
-      let totalRecv = 0;
-      
-      Object.entries(serverData.history_24h.network).forEach(([interfaceName, interfaceData]: [string, any]) => {
-        // Skip loopback interface as it's usually not relevant for monitoring
-        if (interfaceName === 'lo') return;
-        
-        const dataPoint = interfaceData.find((item: any) => item.report_time === time);
-        if (dataPoint) {
-          totalSent += parseInt(dataPoint.bytes_sent || 0);
-          totalRecv += parseInt(dataPoint.bytes_recv || 0);
-        }
-      });
-      
-      chartData.push({
-        time: new Date(time).toLocaleTimeString('en-US', { 
+    // Convert to array and sort by time, take last 24 hours
+    return Array.from(hourlyData.values())
+      .sort((a, b) => new Date(a.report_time).getTime() - new Date(b.report_time).getTime())
+      .slice(-24)
+      .map((item: any) => ({
+        time: new Date(item.report_time).toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit',
           hour12: false 
         }),
-        sent: (totalSent / (1024 * 1024)).toFixed(2), // Convert to MB with decimals
-        recv: (totalRecv / (1024 * 1024)).toFixed(2)  // Convert to MB with decimals
+        total: parseFloat(item.total),
+        user: parseFloat(item.user),
+        system: parseFloat(item.system),
+        iowait: parseFloat(item.iowait)
+      }));
+  };
+
+  // Format chart data for Memory usage - last 24 hours only, hourly
+  const formatMemoryChartData = () => {
+    if (!serverData?.history_24h?.memory) return [];
+    
+    // Group data by hour and take the latest reading for each hour
+    const hourlyData = new Map();
+    
+    serverData.history_24h.memory.forEach((item: any) => {
+      const date = new Date(item.report_time);
+      const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
+      
+      if (!hourlyData.has(hourKey) || new Date(item.report_time) > new Date(hourlyData.get(hourKey).report_time)) {
+        hourlyData.set(hourKey, item);
+      }
+    });
+    
+    // Convert to array and sort by time, take last 24 hours
+    return Array.from(hourlyData.values())
+      .sort((a, b) => new Date(a.report_time).getTime() - new Date(b.report_time).getTime())
+      .slice(-24)
+      .map((item: any) => ({
+        time: new Date(item.report_time).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        }),
+        percent: parseFloat(item.percent),
+        usedGB: (parseInt(item.used) / (1024 * 1024 * 1024)).toFixed(1),
+        totalGB: (parseInt(item.total) / (1024 * 1024 * 1024)).toFixed(1),
+        availableGB: (parseInt(item.available) / (1024 * 1024 * 1024)).toFixed(1)
+      }));
+  };
+
+  // Format chart data for Network usage - last 24 hours only, hourly
+  const formatNetworkChartData = () => {
+    if (!serverData?.history_24h?.network) return [];
+    
+    const hourlyData = new Map();
+    
+    // Collect all time points from all interfaces (excluding loopback)
+    Object.entries(serverData.history_24h.network).forEach(([interfaceName, interfaceData]: [string, any]) => {
+      if (interfaceName === 'lo') return; // Skip loopback
+      
+      interfaceData.forEach((item: any) => {
+        const date = new Date(item.report_time);
+        const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
+        
+        if (!hourlyData.has(hourKey)) {
+          hourlyData.set(hourKey, { report_time: item.report_time, sent: 0, recv: 0 });
+        }
+        
+        const existing = hourlyData.get(hourKey);
+        if (new Date(item.report_time) >= new Date(existing.report_time)) {
+          existing.sent += parseInt(item.bytes_sent || 0);
+          existing.recv += parseInt(item.bytes_recv || 0);
+          existing.report_time = item.report_time;
+        }
       });
     });
     
-    return chartData;
+    // Convert to array and sort by time, take last 24 hours
+    return Array.from(hourlyData.values())
+      .sort((a, b) => new Date(a.report_time).getTime() - new Date(b.report_time).getTime())
+      .slice(-24)
+      .map((item: any) => ({
+        time: new Date(item.report_time).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        }),
+        sent: (item.sent / (1024 * 1024)).toFixed(1), // Convert to MB
+        recv: (item.recv / (1024 * 1024)).toFixed(1)  // Convert to MB
+      }));
+  };
+
+  // Format chart data for Disk I/O - last 24 hours only, hourly
+  const formatDiskChartData = () => {
+    if (!serverData?.history_24h?.disk_io) return [];
+    
+    const hourlyData = new Map();
+    
+    // Collect all time points from all disks
+    Object.values(serverData.history_24h.disk_io).forEach((diskData: any) => {
+      diskData.forEach((item: any) => {
+        const date = new Date(item.report_time);
+        const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
+        
+        if (!hourlyData.has(hourKey)) {
+          hourlyData.set(hourKey, { report_time: item.report_time, read: 0, write: 0 });
+        }
+        
+        const existing = hourlyData.get(hourKey);
+        if (new Date(item.report_time) >= new Date(existing.report_time)) {
+          existing.read += parseInt(item.read_bytes || 0);
+          existing.write += parseInt(item.write_bytes || 0);
+          existing.report_time = item.report_time;
+        }
+      });
+    });
+    
+    // Convert to array and sort by time, take last 24 hours
+    return Array.from(hourlyData.values())
+      .sort((a, b) => new Date(a.report_time).getTime() - new Date(b.report_time).getTime())
+      .slice(-24)
+      .map((item: any) => ({
+        time: new Date(item.report_time).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        }),
+        read: (item.read / (1024 * 1024 * 1024)).toFixed(2), // Convert to GB
+        write: (item.write / (1024 * 1024 * 1024)).toFixed(2) // Convert to GB
+      }));
   };
 
   const chartConfig = {
@@ -235,6 +304,10 @@ export default function ServerDetails() {
     network: {
       sent: { label: "Sent (MB)", color: "hsl(217, 91%, 60%)" },
       recv: { label: "Received (MB)", color: "hsl(142, 76%, 36%)" }
+    },
+    disk: {
+      read: { label: "Read (GB)", color: "hsl(217, 91%, 60%)" },
+      write: { label: "Write (GB)", color: "hsl(0, 84%, 60%)" }
     }
   };
 
@@ -452,178 +525,221 @@ export default function ServerDetails() {
         </Card>
       )}
 
-      {/* Performance Charts - Only show if we have data */}
+      {/* Performance Charts - 2x2 Grid Layout */}
       {hasMonitoringData && (
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-foreground">Performance History (24h)</h2>
+          <h2 className="text-2xl font-bold text-foreground">Performance History (Last 24 Hours)</h2>
           
-          {/* CPU Usage Chart */}
-          {serverData.history_24h.cpu && serverData.history_24h.cpu.length > 0 && (
-            <Card className="glassmorphism border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-blue-400" />
-                  CPU Usage Over Time
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ChartContainer config={chartConfig.cpu}>
-                    <LineChart data={formatCpuChartData()}>
-                      <XAxis 
-                        dataKey="time" 
-                        tickLine={false}
-                        axisLine={false}
-                        className="text-xs"
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis 
-                        domain={[0, 100]}
-                        tickLine={false}
-                        axisLine={false}
-                        className="text-xs"
-                      />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent />}
-                        cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="total"
-                        stroke="var(--color-total)"
-                        strokeWidth={3}
-                        dot={false}
-                        activeDot={{ r: 6, stroke: "var(--color-total)", strokeWidth: 2 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="user"
-                        stroke="var(--color-user)"
-                        strokeWidth={2}
-                        dot={false}
-                        strokeDasharray="5 5"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="system"
-                        stroke="var(--color-system)"
-                        strokeWidth={2}
-                        dot={false}
-                        strokeDasharray="3 3"
-                      />
-                    </LineChart>
-                  </ChartContainer>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* CPU Usage Chart */}
+            {serverData.history_24h.cpu && serverData.history_24h.cpu.length > 0 && (
+              <Card className="glassmorphism border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Activity className="w-5 h-5 text-blue-400" />
+                    CPU Usage
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ChartContainer config={chartConfig.cpu}>
+                      <LineChart data={formatCpuChartData()}>
+                        <XAxis 
+                          dataKey="time" 
+                          tickLine={false}
+                          axisLine={false}
+                          className="text-xs"
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis 
+                          domain={[0, 100]}
+                          tickLine={false}
+                          axisLine={false}
+                          className="text-xs"
+                        />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent />}
+                          cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="total"
+                          stroke="var(--color-total)"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, stroke: "var(--color-total)", strokeWidth: 2 }}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Memory Usage Chart */}
-          {serverData.history_24h.memory && serverData.history_24h.memory.length > 0 && (
-            <Card className="glassmorphism border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="w-5 h-5 text-blue-400" />
-                  Memory Usage Over Time
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ChartContainer config={chartConfig.memory}>
-                    <AreaChart data={formatMemoryChartData()}>
-                      <XAxis 
-                        dataKey="time" 
-                        tickLine={false}
-                        axisLine={false}
-                        className="text-xs"
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis 
-                        domain={[0, 100]}
-                        tickLine={false}
-                        axisLine={false}
-                        className="text-xs"
-                      />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent 
-                          formatter={(value, name, props) => [
-                            `${value}% (${props?.payload?.usedGB} GB / ${props?.payload?.totalGB} GB)`,
-                            'Memory Usage'
-                          ]}
-                        />}
-                        cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="percent"
-                        stroke="var(--color-percent)"
-                        fill="var(--color-percent)"
-                        fillOpacity={0.3}
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+            {/* Memory Usage Chart */}
+            {serverData.history_24h.memory && serverData.history_24h.memory.length > 0 && (
+              <Card className="glassmorphism border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Database className="w-5 h-5 text-blue-400" />
+                    Memory Usage
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ChartContainer config={chartConfig.memory}>
+                      <AreaChart data={formatMemoryChartData()}>
+                        <XAxis 
+                          dataKey="time" 
+                          tickLine={false}
+                          axisLine={false}
+                          className="text-xs"
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis 
+                          domain={[0, 100]}
+                          tickLine={false}
+                          axisLine={false}
+                          className="text-xs"
+                        />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent 
+                            formatter={(value, name, props) => [
+                              `${value}% (${props?.payload?.usedGB} GB / ${props?.payload?.totalGB} GB)`,
+                              'Memory Usage'
+                            ]}
+                          />}
+                          cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="percent"
+                          stroke="var(--color-percent)"
+                          fill="var(--color-percent)"
+                          fillOpacity={0.3}
+                          strokeWidth={2}
+                        />
+                      </AreaChart>
+                    </ChartContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Network Usage Chart */}
-          {serverData.history_24h.network && Object.keys(serverData.history_24h.network).length > 0 && (
-            <Card className="glassmorphism border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <NetworkIcon className="w-5 h-5 text-blue-400" />
-                  Network Traffic Over Time
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ChartContainer config={chartConfig.network}>
-                    <LineChart data={formatNetworkChartData()}>
-                      <XAxis 
-                        dataKey="time" 
-                        tickLine={false}
-                        axisLine={false}
-                        className="text-xs"
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis 
-                        tickLine={false}
-                        axisLine={false}
-                        className="text-xs"
-                      />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent 
-                          formatter={(value, name) => [
-                            `${value} MB`,
-                            name === 'sent' ? 'Data Sent' : 'Data Received'
-                          ]}
-                        />}
-                        cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="sent"
-                        stroke="var(--color-sent)"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 5, stroke: "var(--color-sent)", strokeWidth: 2 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="recv"
-                        stroke="var(--color-recv)"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 5, stroke: "var(--color-recv)", strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ChartContainer>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+            {/* Network Traffic Chart */}
+            {serverData.history_24h.network && Object.keys(serverData.history_24h.network).length > 0 && (
+              <Card className="glassmorphism border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <NetworkIcon className="w-5 h-5 text-blue-400" />
+                    Network Traffic
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ChartContainer config={chartConfig.network}>
+                      <LineChart data={formatNetworkChartData()}>
+                        <XAxis 
+                          dataKey="time" 
+                          tickLine={false}
+                          axisLine={false}
+                          className="text-xs"
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis 
+                          tickLine={false}
+                          axisLine={false}
+                          className="text-xs"
+                        />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent 
+                            formatter={(value, name) => [
+                              `${value} MB`,
+                              name === 'sent' ? 'Data Sent' : 'Data Received'
+                            ]}
+                          />}
+                          cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="sent"
+                          stroke="var(--color-sent)"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, stroke: "var(--color-sent)", strokeWidth: 2 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="recv"
+                          stroke="var(--color-recv)"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, stroke: "var(--color-recv)", strokeWidth: 2 }}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Disk I/O Chart */}
+            {serverData.history_24h.disk_io && Object.keys(serverData.history_24h.disk_io).length > 0 && (
+              <Card className="glassmorphism border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <HardDrive className="w-5 h-5 text-blue-400" />
+                    Disk I/O
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    <ChartContainer config={chartConfig.disk}>
+                      <LineChart data={formatDiskChartData()}>
+                        <XAxis 
+                          dataKey="time" 
+                          tickLine={false}
+                          axisLine={false}
+                          className="text-xs"
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis 
+                          tickLine={false}
+                          axisLine={false}
+                          className="text-xs"
+                        />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent 
+                            formatter={(value, name) => [
+                              `${value} GB`,
+                              name === 'read' ? 'Disk Read' : 'Disk Write'
+                            ]}
+                          />}
+                          cursor={{ stroke: "rgba(59, 130, 246, 0.3)" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="read"
+                          stroke="var(--color-read)"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, stroke: "var(--color-read)", strokeWidth: 2 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="write"
+                          stroke="var(--color-write)"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, stroke: "var(--color-write)", strokeWidth: 2 }}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 
