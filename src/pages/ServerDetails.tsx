@@ -30,6 +30,7 @@ export default function ServerDetails() {
   const { data: serverData, isLoading, error } = useQuery({
     queryKey: ['server-details', serverId],
     queryFn: async () => {
+      console.log('Fetching server details for ID:', serverId);
       const response = await fetch(`https://api.theservermonitor.com/server?id=${serverId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -37,6 +38,7 @@ export default function ServerDetails() {
       });
       
       const result = await response.json();
+      console.log('Server details API response:', result);
       
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to fetch server details');
@@ -86,7 +88,7 @@ export default function ServerDetails() {
   });
 
   const handleDeleteServer = () => {
-    if (serverData && window.confirm(`Are you sure you want to delete "${serverData.server_info.server_name}"? This action cannot be undone.`)) {
+    if (serverData?.server_info && window.confirm(`Are you sure you want to delete "${serverData.server_info.server_name}"? This action cannot be undone.`)) {
       deleteServerMutation.mutate(serverData.server_info.id);
     }
   };
@@ -242,12 +244,12 @@ export default function ServerDetails() {
     );
   }
 
-  if (error || !serverData) {
+  if (error || !serverData || !serverData.server_info) {
     return (
       <div className="text-center p-8">
         <h1 className="text-2xl font-bold">Server Not Found</h1>
         <p className="text-muted-foreground mb-4">
-          {error?.message || "The requested server could not be found."}
+          {error?.message || "The requested server could not be found or the server data is incomplete."}
         </p>
         <Button onClick={() => navigate("/servers")}>
           <ArrowLeft className="w-4 h-4 mr-2" />
