@@ -1,8 +1,8 @@
-
 import { MetricCard } from "@/components/MetricCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { 
   Server, 
   Activity, 
@@ -10,33 +10,110 @@ import {
   Network, 
   Database,
   Gauge,
-  AlertTriangle,
-  Wifi
+  Wifi,
+  RefreshCw
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
-// Mock data for demonstration
-const systemMetrics = {
-  servers: { total: 12, online: 11, offline: 1 },
-  containers: { total: 47, running: 44, stopped: 3 },
-  websites: { total: 25, up: 23, down: 2 },
-  alerts: { total: 3, critical: 1, warning: 2 }
-};
+interface ServerData {
+  id: number;
+  server_name: string;
+  unique_identifier: string;
+  description?: string;
+  created_at: string;
+}
 
-const serverList = [
-  { name: "Web Server 01", ip: "192.168.1.10", status: "online" as const, cpu: 65, memory: 78, disk: 45 },
-  { name: "Database Server", ip: "192.168.1.20", status: "online" as const, cpu: 82, memory: 89, disk: 67 },
-  { name: "API Gateway", ip: "192.168.1.30", status: "warning" as const, cpu: 91, memory: 85, disk: 23 },
-  { name: "Load Balancer", ip: "192.168.1.40", status: "online" as const, cpu: 34, memory: 56, disk: 78 },
-  { name: "Backup Server", ip: "192.168.1.50", status: "offline" as const, cpu: 0, memory: 0, disk: 89 }
-];
+interface WebsiteData {
+  id: number;
+  url: string;
+  created_at: string;
+}
 
-const recentAlerts = [
-  { id: 1, message: "High CPU usage on Database Server", severity: "critical" as const, time: "2 min ago" },
-  { id: 2, message: "SSL certificate expires in 7 days", severity: "warning" as const, time: "1 hour ago" },
-  { id: 3, message: "Backup process completed successfully", severity: "info" as const, time: "3 hours ago" }
-];
+interface ServersResponse {
+  success: boolean;
+  data: ServerData[];
+  count: number;
+}
+
+interface WebsitesResponse {
+  success: boolean;
+  data: WebsiteData[];
+}
+
+// Generate mock metrics for display (in real implementation, this would come from live stats)
+const generateMockMetrics = () => ({
+  cpu: Math.floor(Math.random() * 80) + 10,
+  memory: Math.floor(Math.random() * 70) + 20,
+  disk: Math.floor(Math.random() * 60) + 15,
+  status: Math.random() > 0.8 ? 'warning' as const : 'online' as const
+});
 
 export default function Index() {
+  const { token } = useAuth();
+  const navigate = useNavigate();
+
+  // Fetch servers from API
+  const { data: serversData, isLoading: serversLoading, refetch: refetchServers } = useQuery({
+    queryKey: ['servers'],
+    queryFn: async (): Promise<ServersResponse> => {
+      const response = await fetch('https://api.theservermonitor.com/server', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to fetch servers');
+      }
+      
+      return result;
+    },
+    enabled: !!token
+  });
+
+  // Fetch websites from API
+  const { data: websitesData, isLoading: websitesLoading, refetch: refetchWebsites } = useQuery({
+    queryKey: ['websites'],
+    queryFn: async (): Promise<WebsitesResponse> => {
+      const response = await fetch('https://api.theservermonitor.com/website', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      return { success: data.success, data: data.success ? data.data : [] };
+    },
+    enabled: !!token
+  });
+
+  const servers = serversData?.data || [];
+  const websites = websitesData?.data || [];
+  const serverCount = serversData?.count || 0;
+  const websiteCount = websites.length || 0;
+
+  // Generate mock metrics for each server for display
+  const serversWithMetrics = servers.map(server => ({
+    ...server,
+    ...generateMockMetrics()
+  }));
+
+  const onlineServers = serversWithMetrics.filter(s => s.status === "online").length;
+  const warningServers = serversWithMetrics.filter(s => s.status === "warning").length;
+  const offlineServers = 0;
+
+  const handleRefresh = () => {
+    refetchServers();
+    refetchWebsites();
+  };
+
+  const handleServerClick = (serverId: number) => {
+    navigate(`/servers/${serverId}`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -49,139 +126,186 @@ export default function Index() {
             Real-time monitoring dashboard for all your infrastructure
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-sm text-muted-foreground">Live</span>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-sm text-muted-foreground">Live</span>
+          </div>
         </div>
       </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
-          title="Servers Online"
-          value={`${systemMetrics.servers.online}/${systemMetrics.servers.total}`}
-          change="+1 today"
-          changeType="positive"
+          title="Total Servers"
+          value={serverCount}
           icon={<Server className="w-4 h-4" />}
           status="healthy"
-          subtitle="2 servers in maintenance"
+          subtitle="Managed servers"
         />
         
         <MetricCard
-          title="Active Containers"
-          value={`${systemMetrics.containers.running}/${systemMetrics.containers.total}`}
-          change="-3 stopped"
-          changeType="negative"
-          icon={<Database className="w-4 h-4" />}
-          status="warning"
-          subtitle="3 containers need attention"
-        />
-        
-        <MetricCard
-          title="Website Status"
-          value={`${systemMetrics.websites.up}/${systemMetrics.websites.total}`}
-          change="99.8% uptime"
+          title="Servers Online"
+          value={`${onlineServers}/${serverCount}`}
+          change={serverCount > 0 ? `${Math.round((onlineServers / serverCount) * 100)}% uptime` : "No servers"}
           changeType="positive"
+          icon={<Activity className="w-4 h-4" />}
+          status="healthy"
+          subtitle="Healthy & running"
+        />
+        
+        <MetricCard
+          title="Websites Monitored"
+          value={websiteCount}
           icon={<Wifi className="w-4 h-4" />}
           status="healthy"
-          subtitle="Average response: 245ms"
+          subtitle="Active monitoring"
         />
         
         <MetricCard
-          title="Active Alerts"
-          value={systemMetrics.alerts.total}
-          change={`${systemMetrics.alerts.critical} critical`}
-          changeType="negative"
-          icon={<AlertTriangle className="w-4 h-4" />}
-          status="critical"
-          subtitle="Requires immediate attention"
+          title="Servers Need Attention"
+          value={warningServers + offlineServers}
+          icon={<Activity className="w-4 h-4" />}
+          status={warningServers + offlineServers > 0 ? "warning" : "healthy"}
+          subtitle={`${warningServers} warning, ${offlineServers} offline`}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Server Status List */}
-        <div className="lg:col-span-2">
-          <Card className="glassmorphism border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Server className="w-5 h-5 text-blue-400" />
-                Server Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+        <Card className="glassmorphism border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Server className="w-5 h-5 text-blue-400" />
+              Server Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {serversLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading servers...</p>
+              </div>
+            ) : serverCount === 0 ? (
+              <div className="text-center py-8">
+                <Server className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Servers Found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Add your first server to start monitoring.
+                </p>
+                <Button onClick={() => navigate('/servers')}>
+                  Add Server
+                </Button>
+              </div>
+            ) : (
               <div className="space-y-4">
-                {serverList.map((server, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/30 hover:border-border/50 transition-colors">
+                {serversWithMetrics.slice(0, 5).map((server) => (
+                  <div 
+                    key={server.id} 
+                    className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/30 hover:border-border/50 transition-colors cursor-pointer"
+                    onClick={() => handleServerClick(server.id)}
+                  >
                     <div className="flex items-center gap-4">
                       <div>
-                        <h3 className="font-medium text-foreground">{server.name}</h3>
-                        <p className="text-sm text-muted-foreground">{server.ip}</p>
+                        <h3 className="font-medium text-foreground">{server.server_name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          ID: {server.unique_identifier?.substring(0, 8)}...
+                        </p>
                       </div>
                       <StatusBadge status={server.status}>
                         {server.status.charAt(0).toUpperCase() + server.status.slice(1)}
                       </StatusBadge>
                     </div>
-                    
-                    <div className="flex items-center gap-6 text-sm">
-                      <div className="text-center">
-                        <div className="text-muted-foreground">CPU</div>
-                        <div className={`font-medium ${server.cpu > 80 ? 'text-red-400' : server.cpu > 60 ? 'text-amber-400' : 'text-green-400'}`}>
-                          {server.cpu}%
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-muted-foreground">RAM</div>
-                        <div className={`font-medium ${server.memory > 80 ? 'text-red-400' : server.memory > 60 ? 'text-amber-400' : 'text-green-400'}`}>
-                          {server.memory}%
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-muted-foreground">Disk</div>
-                        <div className={`font-medium ${server.disk > 80 ? 'text-red-400' : server.disk > 60 ? 'text-amber-400' : 'text-green-400'}`}>
-                          {server.disk}%
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 ))}
+                {serverCount > 5 && (
+                  <div className="text-center pt-4">
+                    <Button variant="outline" onClick={() => navigate('/servers')}>
+                      View All {serverCount} Servers
+                    </Button>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Recent Alerts */}
-        <div>
-          <Card className="glassmorphism border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-400" />
-                Recent Alerts
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+        {/* Website Monitoring Overview */}
+        <Card className="glassmorphism border-border/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wifi className="w-5 h-5 text-green-400" />
+              Website Monitoring
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {websitesLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading websites...</p>
+              </div>
+            ) : websiteCount === 0 ? (
+              <div className="text-center py-8">
+                <Wifi className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Websites Monitored</h3>
+                <p className="text-muted-foreground mb-4">
+                  Add your first website to start monitoring uptime and performance.
+                </p>
+                <Button onClick={() => navigate('/websites')}>
+                  Add Website
+                </Button>
+              </div>
+            ) : (
               <div className="space-y-4">
-                {recentAlerts.map((alert) => (
-                  <div key={alert.id} className="p-3 rounded-lg border border-border/30 bg-card/30">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                        alert.severity === 'critical' ? 'bg-red-400' : 
-                        alert.severity === 'warning' ? 'bg-amber-400' : 'bg-blue-400'
-                      }`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground mb-1">
-                          {alert.message}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {alert.time}
+                {websites.slice(0, 5).map((website) => {
+                  const getDomainName = (url: string) => {
+                    try {
+                      return new URL(url).hostname;
+                    } catch {
+                      return url;
+                    }
+                  };
+
+                  return (
+                    <div 
+                      key={website.id}
+                      className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/30 hover:border-border/50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/website-analytics/${website.id}`)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <Wifi className="w-8 h-8 text-green-400" />
+                        <div>
+                          <h3 className="font-medium text-foreground">{getDomainName(website.url)}</h3>
+                          <p className="text-sm text-muted-foreground">{website.url}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <StatusBadge status="online">
+                          Monitoring
+                        </StatusBadge>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Added: {new Date(website.created_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
+                  );
+                })}
+                {websiteCount > 5 && (
+                  <div className="text-center pt-4">
+                    <Button variant="outline" onClick={() => navigate('/websites')}>
+                      View All {websiteCount} Websites
+                    </Button>
                   </div>
-                ))}
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* System Resource Overview */}
@@ -194,52 +318,58 @@ export default function Index() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground mb-2">67%</div>
-            <Progress value={67} className="h-2 mb-2" />
-            <p className="text-xs text-muted-foreground">Across all servers</p>
+            <div className="text-2xl font-bold text-foreground mb-2">
+              {serverCount > 0 ? Math.round(serversWithMetrics.reduce((acc, s) => acc + s.cpu, 0) / serverCount) : 0}%
+            </div>
+            <Progress value={serverCount > 0 ? serversWithMetrics.reduce((acc, s) => acc + s.cpu, 0) / serverCount : 0} className="h-2 mb-2" />
+            <p className="text-xs text-muted-foreground">Across {serverCount} servers</p>
           </CardContent>
         </Card>
 
         <Card className="glassmorphism border-border/50">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Memory Usage</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Average Memory</CardTitle>
               <Gauge className="w-4 h-4 text-green-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground mb-2">72%</div>
-            <Progress value={72} className="h-2 mb-2" />
-            <p className="text-xs text-muted-foreground">89.6 GB / 124 GB</p>
+            <div className="text-2xl font-bold text-foreground mb-2">
+              {serverCount > 0 ? Math.round(serversWithMetrics.reduce((acc, s) => acc + s.memory, 0) / serverCount) : 0}%
+            </div>
+            <Progress value={serverCount > 0 ? serversWithMetrics.reduce((acc, s) => acc + s.memory, 0) / serverCount : 0} className="h-2 mb-2" />
+            <p className="text-xs text-muted-foreground">Memory utilization</p>
           </CardContent>
         </Card>
 
         <Card className="glassmorphism border-border/50">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Disk Usage</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Average Disk</CardTitle>
               <HardDrive className="w-4 h-4 text-amber-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground mb-2">58%</div>
-            <Progress value={58} className="h-2 mb-2" />
-            <p className="text-xs text-muted-foreground">2.3 TB / 4.0 TB</p>
+            <div className="text-2xl font-bold text-foreground mb-2">
+              {serverCount > 0 ? Math.round(serversWithMetrics.reduce((acc, s) => acc + s.disk, 0) / serverCount) : 0}%
+            </div>
+            <Progress value={serverCount > 0 ? serversWithMetrics.reduce((acc, s) => acc + s.disk, 0) / serverCount : 0} className="h-2 mb-2" />
+            <p className="text-xs text-muted-foreground">Storage utilization</p>
           </CardContent>
         </Card>
 
         <Card className="glassmorphism border-border/50">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Network I/O</CardTitle>
-              <Network className="w-4 h-4 text-purple-400" />
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Infrastructure</CardTitle>
+              <Database className="w-4 h-4 text-purple-400" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground mb-2">1.2 GB/s</div>
+            <div className="text-2xl font-bold text-foreground mb-2">{serverCount + websiteCount}</div>
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>↑ 789 MB/s</span>
-              <span>↓ 456 MB/s</span>
+              <span>{serverCount} servers</span>
+              <span>{websiteCount} websites</span>
             </div>
           </CardContent>
         </Card>

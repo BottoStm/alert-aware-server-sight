@@ -26,7 +26,7 @@ import {
   Network,
   BarChart3,
   Database,
-  RefreshCw, // Correction: Added RefreshCw to the import
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -34,6 +34,7 @@ import { UsageOverview } from "@/components/charts/UsageOverview";
 import Processes from "./Processes";
 import Containers from "./Containers";
 import NetworkPage from "./Network";
+import Storage from "./Storage";
 
 interface LiveStatsData {
   uptime: string;
@@ -227,6 +228,7 @@ export default function ServerDetails() {
           { id: "processes", label: "Processes", icon: Activity },
           { id: "containers", label: "Containers", icon: Database },
           { id: "network", label: "Network", icon: Network },
+          { id: "storage", label: "Storage", icon: HardDrive },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -307,6 +309,7 @@ export default function ServerDetails() {
       {activeTab === "processes" && <Processes />}
       {activeTab === "containers" && <Containers />}
       {activeTab === "network" && <NetworkPage />}
+      {activeTab === "storage" && <Storage />}
     </div>
   );
 }

@@ -14,17 +14,33 @@ export default function WebsiteChecks() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
 
+  console.log('WebsiteChecks component loaded, token:', !!token);
+
   // Fetch websites from API
-  const { data: websitesData, isLoading } = useQuery({
+  const { data: websitesData, isLoading, error } = useQuery({
     queryKey: ['websites'],
     queryFn: async () => {
-      const response = await fetch('https://api.theservermonitor.com/website', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      console.log('Fetching websites from API...');
+      try {
+        const response = await fetch('https://api.theservermonitor.com/website', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        console.log('Website API response status:', response.status);
+        const data = await response.json();
+        console.log('Website API response data:', data);
+        
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status} - ${data.error || 'Failed to fetch websites'}`);
         }
-      });
-      const data = await response.json();
-      return data.success ? data.data : [];
+        
+        return data.success ? data.data : [];
+      } catch (error) {
+        console.error('Error fetching websites:', error);
+        throw error;
+      }
     },
     enabled: !!token
   });
@@ -35,6 +51,7 @@ export default function WebsiteChecks() {
     queryFn: async () => {
       if (!websitesData?.length) return {};
       
+      console.log('Fetching details for websites:', websitesData);
       const details = {};
       for (const website of websitesData) {
         try {
@@ -59,6 +76,7 @@ export default function WebsiteChecks() {
   // Add website mutation
   const addWebsiteMutation = useMutation({
     mutationFn: async (urls: string[]) => {
+      console.log('Adding website:', urls);
       const response = await fetch('https://api.theservermonitor.com/website', {
         method: 'POST',
         headers: {
@@ -67,7 +85,14 @@ export default function WebsiteChecks() {
         },
         body: JSON.stringify({ urls })
       });
-      return response.json();
+      const result = await response.json();
+      console.log('Add website response:', result);
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to add website');
+      }
+      
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websites'] });
@@ -79,6 +104,7 @@ export default function WebsiteChecks() {
   // Delete website mutation
   const deleteWebsiteMutation = useMutation({
     mutationFn: async (id: number) => {
+      console.log('Deleting website:', id);
       const response = await fetch('https://api.theservermonitor.com/website', {
         method: 'DELETE',
         headers: {
@@ -87,7 +113,14 @@ export default function WebsiteChecks() {
         },
         body: JSON.stringify({ id })
       });
-      return response.json();
+      const result = await response.json();
+      console.log('Delete website response:', result);
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete website');
+      }
+      
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websites'] });
@@ -102,7 +135,9 @@ export default function WebsiteChecks() {
   };
 
   const deleteWebsite = (id: number) => {
-    deleteWebsiteMutation.mutate(id);
+    if (confirm('Are you sure you want to delete this website?')) {
+      deleteWebsiteMutation.mutate(id);
+    }
   };
 
   const getDomainName = (url: string) => {
@@ -124,10 +159,26 @@ export default function WebsiteChecks() {
 
   const websites = websitesData || [];
 
+  console.log('Component state:', { isLoading, error, websites, token: !!token });
+
   if (isLoading) {
     return (
       <div className="text-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
         <h1 className="text-2xl font-bold">Loading websites...</h1>
+        <p className="text-muted-foreground">Please wait while we fetch your website data.</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-8">
+        <h1 className="text-2xl font-bold text-red-400">Error Loading Websites</h1>
+        <p className="text-muted-foreground mb-4">{error.message}</p>
+        <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['websites'] })}>
+          Try Again
+        </Button>
       </div>
     );
   }
@@ -161,68 +212,96 @@ export default function WebsiteChecks() {
         </div>
       </div>
 
-      <div className="grid gap-4">
-        {websites.map((website) => {
-          const details = websiteDetails?.[website.id];
-          return (
-            <Card key={website.id} className="glassmorphism border-border/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
-              <CardContent className="p-6" onClick={() => window.location.href = `/website-analytics/${website.id}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-8 h-8 text-blue-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">{getDomainName(website.url)}</h3>
-                      <p className="text-muted-foreground text-sm">{website.url}</p>
-                      <div className="flex items-center gap-4 mt-2">
-                        <span className="text-xs text-muted-foreground">
-                          Added: {new Date(website.created_at).toLocaleDateString()}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          Preview: {getDomainName(website.url)}
-                        </span>
+      {websites.length === 0 ? (
+        <Card className="glassmorphism border-border/50">
+          <CardContent className="p-12 text-center">
+            <Globe className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-muted-foreground mb-2">No Websites Found</h3>
+            <p className="text-muted-foreground mb-6">
+              Get started by adding your first website to monitor.
+            </p>
+            <div className="flex items-center gap-3 justify-center">
+              <Input
+                placeholder="Enter website URL..."
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                className="w-64"
+                onKeyPress={(e) => e.key === 'Enter' && addWebsite()}
+              />
+              <Button 
+                onClick={addWebsite} 
+                disabled={addWebsiteMutation.isPending || !newUrl.trim()}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {addWebsiteMutation.isPending ? 'Adding...' : 'Add Website'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {websites.map((website) => {
+            const details = websiteDetails?.[website.id];
+            return (
+              <Card key={website.id} className="glassmorphism border-border/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                <CardContent className="p-6" onClick={() => window.location.href = `/website-analytics/${website.id}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-8 h-8 text-blue-400" />
                       </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{getDomainName(website.url)}</h3>
+                        <p className="text-muted-foreground text-sm">{website.url}</p>
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-xs text-muted-foreground">
+                            Added: {new Date(website.created_at).toLocaleDateString()}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Preview: {getDomainName(website.url)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-sm font-medium">
+                          Uptime: {details?.graph_data?.uptime_percentage_24h || 'N/A'}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Avg Response: {getAverageResponseTime(details)}
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Edit functionality
+                        }}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteWebsite(website.id);
+                        }}
+                        className="text-red-400 hover:text-red-300"
+                        disabled={deleteWebsiteMutation.isPending}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-sm font-medium">
-                        Uptime: {details?.graph_data?.uptime_percentage_24h || 'N/A'}%
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Avg Response: {getAverageResponseTime(details)}
-                      </div>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Edit functionality
-                      }}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteWebsite(website.id);
-                      }}
-                      className="text-red-400 hover:text-red-300"
-                      disabled={deleteWebsiteMutation.isPending}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
